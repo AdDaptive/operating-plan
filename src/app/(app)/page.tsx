@@ -19,13 +19,16 @@ function greeting(): string {
 }
 
 /**
- * The personal landing page: what needs YOUR attention today, plus the
- * key results you own and (if you manage anyone) what your team needs
- * attention on -- the same grouping the daily digest emails/Slacks you
- * (src/lib/taskBuckets.ts is shared with src/lib/digest.ts), just shown
- * here instead of sent. Objectives/Key Results/Reports/Team stay the
- * org-wide browsing views; this is the "what do I do today" view that
- * moved here after My Tasks became the org-wide Key Results tab.
+ * The personal landing page: every task you own (attention-needing ones --
+ * overdue / due today / due soon / flagged -- listed first, same order the
+ * daily digest uses), plus the key results you own and (if you manage
+ * anyone) what your team needs attention on. src/lib/taskBuckets.ts is
+ * shared with src/lib/digest.ts, so "needs attention" means the same
+ * thing in both places -- but unlike the digest's own attention-only
+ * framing, Home always shows the full list, not just the urgent slice.
+ * Objectives/Key Results/Reports/Team stay the org-wide browsing views;
+ * this is the "what's on my plate" view that moved here after My Tasks
+ * became the org-wide Key Results tab.
  */
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -54,6 +57,10 @@ export default async function HomePage() {
   const bucket = bucketTasks(myTasks);
   const myAttentionTasks = [...bucket.overdue, ...bucket.dueToday, ...bucket.dueSoon, ...bucket.flagged];
   const attentionCount = myAttentionTasks.length;
+  // Every task the person owns, attention-needing ones first (already in
+  // urgency order) followed by everything else -- the "Your tasks" section
+  // shows the whole list; attentionCount above just drives the header copy.
+  const myVisibleTasks = [...myAttentionTasks, ...bucket.upcoming];
 
   const myKeyResults = objectives.flatMap((o) =>
     o.keyResults
@@ -86,11 +93,11 @@ export default async function HomePage() {
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-3">
             <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR TASKS</h2>
-            {myAttentionTasks.length === 0 ? (
+            {myVisibleTasks.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
-                <p className="text-[13.5px] font-semibold text-ink">Nothing needs your attention</p>
+                <p className="text-[13.5px] font-semibold text-ink">No open tasks</p>
                 <p className="text-[12.5px] text-ink-tertiary">
-                  Overdue, due-soon, and flagged tasks you own will show up here.
+                  Tasks you own will show up here, attention-needing ones first.
                 </p>
               </div>
             ) : (
@@ -101,7 +108,7 @@ export default async function HomePage() {
                   <span>DUE DATE</span>
                   <span>STATUS</span>
                 </div>
-                {myAttentionTasks.map((task) => {
+                {myVisibleTasks.map((task) => {
                   const overdue = isOverdue(task.dueDate, task.status);
                   return (
                     <div
