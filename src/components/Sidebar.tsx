@@ -65,7 +65,7 @@ export default function Sidebar({
 
       <nav className="flex flex-col gap-0.5">
         <SidebarLink href="/" icon="home" label="Home" active={pathname === "/"} />
-        <SidebarLink href="/my-tasks" icon="tasks" label="My Tasks" active={pathname === "/my-tasks"} />
+        <SidebarLink href="/key-results" icon="tasks" label="Key Results" active={pathname === "/key-results"} />
         <SidebarLink
           href="/objectives"
           icon="objectives"

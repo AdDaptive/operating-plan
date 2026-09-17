@@ -46,7 +46,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
         </div>
         <div className="flex items-center gap-3">
           {allKeyResults.length > 0 && (
-            <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} />
+            <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} users={users} />
           )}
           {allKeyResults.length > 0 && <TaskModal keyResults={allKeyResults} users={users} />}
         </div>
@@ -63,7 +63,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                 Tasks live under a key result, and each key result&rsquo;s progress rolls up
                 into &ldquo;{objective.title}&rdquo;&rsquo;s overall progress.
               </p>
-              <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} />
+              <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} users={users} />
             </div>
           )}
 
@@ -79,20 +79,40 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                         KEY RESULT
                       </div>
                       <div className="text-[15px] font-bold text-ink">{kr.title}</div>
-                      {kr.dueDate && (
-                        <div
-                          className="mt-0.5 text-[12px]"
-                          style={{ color: krOverdue ? "#B42318" : "var(--ink-secondary, #475467)" }}
-                        >
-                          Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
-                          {krOverdue ? " · overdue" : ""}
-                        </div>
-                      )}
+                      <div className="mt-1 flex items-center gap-2.5">
+                        {kr.owner && (
+                          <div className="flex items-center gap-1.5">
+                            <div
+                              className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                              style={{ background: colorForName(kr.owner.name) }}
+                            >
+                              {initials(kr.owner.name)}
+                            </div>
+                            <span className="text-[12px] text-ink-secondary">{kr.owner.name}</span>
+                          </div>
+                        )}
+                        {kr.dueDate && (
+                          <span
+                            className="text-[12px]"
+                            style={{ color: krOverdue ? "#B42318" : "var(--ink-secondary, #475467)" }}
+                          >
+                            Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
+                            {krOverdue ? " · overdue" : ""}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <KeyResultModal
                       objectiveId={objective.id}
                       objectiveDueDate={objective.dueDate}
-                      existing={{ id: kr.id, title: kr.title, status: kr.status, dueDate: kr.dueDate ?? "" }}
+                      users={users}
+                      existing={{
+                        id: kr.id,
+                        title: kr.title,
+                        status: kr.status,
+                        dueDate: kr.dueDate ?? "",
+                        ownerId: kr.ownerId ?? "",
+                      }}
                     />
                   </div>
                   <div className="flex items-center gap-2.5">

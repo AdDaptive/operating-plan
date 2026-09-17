@@ -200,7 +200,7 @@ src/
     (app)/layout.tsx              — shared sidebar shell for signed-in pages
     (app)/objectives/             — objectives grid (rollup view)
     (app)/board/[objectiveId]/    — task board for one objective
-    (app)/my-tasks/               — tasks owned by the signed-in user
+    (app)/key-results/            — every key result across every objective, with its tasks
     (app)/team/                   — directory + workload per person
     (app)/reports/                — org-wide status + progress overview
     api/                          — REST-ish routes the client calls

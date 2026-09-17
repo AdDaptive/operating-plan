@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { title, status, dueDate, objectiveId } = body ?? {};
+  const { title, status, dueDate, ownerId, objectiveId } = body ?? {};
   if (!title || !objectiveId) {
     return NextResponse.json({ error: "Title and objectiveId are required." }, { status: 400 });
   }
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     title,
     status: status || "NOT_STARTED",
     dueDate,
+    ownerId: ownerId || null,
     objectiveId,
   });
   return NextResponse.json(keyResult, { status: 201 });

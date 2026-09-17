@@ -38,6 +38,7 @@ export type KeyResultRow = {
   title: string;
   status: TaskStatus;
   dueDate: string | null;
+  ownerId: string | null;
   objectiveId: string;
   createdAt: string;
 };
@@ -132,6 +133,7 @@ async function ensureSchema(): Promise<void> {
       title TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'NOT_STARTED',
       "dueDate" TEXT,
+      "ownerId" TEXT REFERENCES users(id),
       "objectiveId" TEXT NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
       "createdAt" TEXT NOT NULL
     );
@@ -177,6 +179,10 @@ async function ensureSchema(): Promise<void> {
     ALTER TABLE key_results DROP COLUMN IF EXISTS unit;
     ALTER TABLE key_results DROP COLUMN IF EXISTS "targetValue";
     ALTER TABLE key_results DROP COLUMN IF EXISTS "currentValue";
+
+    -- Key results get an owner too (nullable -- existing key results
+    -- predate this and won't have one until someone sets it).
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS "ownerId" TEXT REFERENCES users(id);
 
     -- Tasks get a longer description plus a separate freeform notes field
     -- the owner uses for their own status updates. Both nullable/additive.
@@ -338,6 +344,7 @@ export async function createKeyResult(data: {
   title: string;
   status?: TaskStatus;
   dueDate?: string | null;
+  ownerId?: string | null;
   objectiveId: string;
 }): Promise<KeyResultRow> {
   const row: KeyResultRow = {
@@ -345,26 +352,27 @@ export async function createKeyResult(data: {
     title: data.title,
     status: data.status ?? "NOT_STARTED",
     dueDate: data.dueDate ?? null,
+    ownerId: data.ownerId ?? null,
     objectiveId: data.objectiveId,
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO key_results (id, title, status, "dueDate", "objectiveId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6)',
-    [row.id, row.title, row.status, row.dueDate, row.objectiveId, row.createdAt]
+    'INSERT INTO key_results (id, title, status, "dueDate", "ownerId", "objectiveId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.objectiveId, row.createdAt]
   );
   return row;
 }
 
 export async function updateKeyResult(
   id: string,
-  patch: Partial<Pick<KeyResultRow, "title" | "status" | "dueDate">>
+  patch: Partial<Pick<KeyResultRow, "title" | "status" | "dueDate" | "ownerId">>
 ): Promise<KeyResultRow | undefined> {
   const existing = await getKeyResultById(id);
   if (!existing) return undefined;
   const next = mergeDefined<KeyResultRow>(existing, patch);
   await query(
-    'UPDATE key_results SET title = $1, status = $2, "dueDate" = $3 WHERE id = $4',
-    [next.title, next.status, next.dueDate, id]
+    'UPDATE key_results SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4 WHERE id = $5',
+    [next.title, next.status, next.dueDate, next.ownerId, id]
   );
   return next;
 }
@@ -515,7 +523,7 @@ export async function createDigestLog(data: {
 // ---------- Composite reads (the "includes" Prisma would have done) ----------
 
 export type TaskWithOwner = TaskRow & { owner: UserRow };
-export type KeyResultWithTasks = KeyResultRow & { tasks: TaskWithOwner[] };
+export type KeyResultWithTasks = KeyResultRow & { owner: UserRow | null; tasks: TaskWithOwner[] };
 export type ObjectiveFull = ObjectiveRow & { keyResults: KeyResultWithTasks[] };
 
 export async function getObjectivesFull(): Promise<ObjectiveFull[]> {
@@ -533,6 +541,7 @@ export async function getObjectivesFull(): Promise<ObjectiveFull[]> {
       .filter((kr) => kr.objectiveId === o.id)
       .map((kr) => ({
         ...kr,
+        owner: kr.ownerId ? (userById.get(kr.ownerId) ?? null) : null,
         tasks: tasks
           .filter((t) => t.keyResultId === kr.id)
           .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow })),
@@ -557,6 +566,7 @@ export async function getObjectiveFull(id: string): Promise<ObjectiveFull | null
     ...objective,
     keyResults: keyResults.map((kr) => ({
       ...kr,
+      owner: kr.ownerId ? (userById.get(kr.ownerId) ?? null) : null,
       tasks: tasks
         .filter((t) => t.keyResultId === kr.id)
         .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow })),

@@ -12,15 +12,18 @@ type Existing = {
   title: string;
   status: TaskStatus;
   dueDate: string;
+  ownerId: string;
 };
 
 export default function KeyResultModal({
   objectiveId,
   objectiveDueDate,
+  users,
   existing,
 }: {
   objectiveId: string;
   objectiveDueDate?: string | null;
+  users: { id: string; name: string }[];
   existing?: Existing;
 }) {
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function KeyResultModal({
   const [title, setTitle] = useState(existing?.title ?? "");
   const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
+  const [ownerId, setOwnerId] = useState(existing?.ownerId ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +50,7 @@ export default function KeyResultModal({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, status, dueDate, objectiveId }),
+      body: JSON.stringify({ title, status, dueDate, ownerId: ownerId || null, objectiveId }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -93,6 +97,20 @@ export default function KeyResultModal({
               className={inputClass}
               placeholder="e.g. Increase managed ad spend to $12M"
             />
+          </Field>
+          <Field label="Owner">
+            <select
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Unassigned</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Status">
