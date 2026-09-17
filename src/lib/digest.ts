@@ -113,6 +113,41 @@ export async function runDailyDigest(): Promise<DigestSendResult[]> {
   return results;
 }
 
+export type DigestPreview = {
+  user: UserRow;
+  subject: string;
+  html: string;
+  text: string;
+  ownItemCount: number;
+  teamFlagCount: number;
+};
+
+/**
+ * Builds (but never sends, and never touches digest_logs) the digest
+ * content for one user -- what the "Preview my digest" link on the board
+ * page renders. Lets you see exactly what the email/Slack message would
+ * look like without RESEND_API_KEY or SLACK_BOT_TOKEN configured yet, and
+ * without it counting as an actual send for today.
+ */
+export async function buildDigestPreviewForUser(userId: string): Promise<DigestPreview | null> {
+  const [tasks, users] = await Promise.all([listActiveTasksForReminders(), listUsers()]);
+  const user = users.find((u) => u.id === userId);
+  if (!user) return null;
+
+  const ownTasks = tasks.filter((t) => t.ownerId === user.id);
+  const bucket = bucketTasks(ownTasks);
+  const ownItemCount =
+    bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
+
+  const reportIds = new Set(users.filter((u2) => u2.managerId === user.id).map((u2) => u2.id));
+  const teamFlags = reportIds.size
+    ? tasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t))
+    : [];
+
+  const { subject, text, html } = buildDigestMessage(user, bucket, teamFlags);
+  return { user, subject, html, text, ownItemCount, teamFlagCount: teamFlags.length };
+}
+
 function dueLabel(t: TaskForReminder): string {
   return format(new Date(t.dueDate), "MMM d");
 }
