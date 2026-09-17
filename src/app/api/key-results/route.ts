@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createKeyResult, getObjectiveById } from "@/lib/db";
+import { notifyKeyResultAssigned } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -30,5 +31,12 @@ export async function POST(req: Request) {
     ownerId: ownerId || null,
     objectiveId,
   });
+
+  // Same as task creation: notify the owner right away, awaited so it
+  // completes before this serverless function's response is sent. A
+  // no-op inside notifyKeyResultAssigned when there's no owner set.
+  const creator = session.user as { id?: string; name?: string | null } | undefined;
+  await notifyKeyResultAssigned(keyResult, { id: creator?.id, name: creator?.name });
+
   return NextResponse.json(keyResult, { status: 201 });
 }
