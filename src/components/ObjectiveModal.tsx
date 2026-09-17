@@ -10,7 +10,7 @@ export default function ObjectiveModal() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [team, setTeam] = useState("");
-  const [quarter, setQuarter] = useState("Q3 2026");
+  const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +21,7 @@ export default function ObjectiveModal() {
     const res = await fetch("/api/objectives", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, team: team || undefined, quarter }),
+      body: JSON.stringify({ title, team: team || undefined, dueDate }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -31,6 +31,7 @@ export default function ObjectiveModal() {
     }
     setTitle("");
     setTeam("");
+    setDueDate("");
     setOpen(false);
     router.refresh();
   }
@@ -66,12 +67,13 @@ export default function ObjectiveModal() {
               placeholder="e.g. Revenue & Partnerships"
             />
           </Field>
-          <Field label="Quarter">
+          <Field label="Due date">
             <input
-              value={quarter}
-              onChange={(e) => setQuarter(e.target.value)}
+              required
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
               className={inputClass}
-              placeholder="Q3 2026"
             />
           </Field>
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}

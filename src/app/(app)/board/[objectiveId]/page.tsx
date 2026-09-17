@@ -6,6 +6,7 @@ import { keyResultProgress, objectiveProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
+import KeyResultStatusSelect from "@/components/KeyResultStatusSelect";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
@@ -28,7 +29,8 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
           </Link>
           <span className="mx-1.5 text-ink-tertiary">/</span>
           <span className="font-semibold text-ink">
-            {objective.title} — {objective.quarter}
+            {objective.title}
+            {objective.dueDate ? ` — Due ${format(new Date(objective.dueDate), "MMM d, yyyy")}` : ""}
           </span>
           <span className="ml-3 rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent">
             {overallProgress}% overall
@@ -36,7 +38,9 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
         </div>
         <div className="flex items-center gap-3">
           <RunRemindersButton />
-          {allKeyResults.length > 0 && <KeyResultModal objectiveId={objective.id} />}
+          {allKeyResults.length > 0 && (
+            <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} />
+          )}
           {allKeyResults.length > 0 && <TaskModal keyResults={allKeyResults} users={users} />}
         </div>
       </div>
@@ -52,12 +56,13 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                 Tasks live under a key result, and each key result&rsquo;s progress rolls up
                 into &ldquo;{objective.title}&rdquo;&rsquo;s overall progress.
               </p>
-              <KeyResultModal objectiveId={objective.id} />
+              <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} />
             </div>
           )}
 
           {objective.keyResults.map((kr) => {
             const progress = keyResultProgress(kr);
+            const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
             return (
               <div key={kr.id} className="overflow-hidden rounded-card border border-line bg-white">
                 <div className="flex items-center justify-between border-b border-[#EEF0F3] px-5 py-4">
@@ -67,13 +72,21 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                         KEY RESULT
                       </div>
                       <div className="text-[15px] font-bold text-ink">{kr.title}</div>
-                      <div className="mt-0.5 text-[12px] text-ink-secondary">
-                        {kr.currentValue}
-                        {kr.unit === "%" ? "%" : ` ${kr.unit}`} of {kr.targetValue}
-                        {kr.unit === "%" ? "%" : ` ${kr.unit}`}
-                      </div>
+                      {kr.dueDate && (
+                        <div
+                          className="mt-0.5 text-[12px]"
+                          style={{ color: krOverdue ? "#B42318" : "var(--ink-secondary, #475467)" }}
+                        >
+                          Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
+                          {krOverdue ? " · overdue" : ""}
+                        </div>
+                      )}
                     </div>
-                    <KeyResultModal objectiveId={objective.id} existing={kr} />
+                    <KeyResultModal
+                      objectiveId={objective.id}
+                      objectiveDueDate={objective.dueDate}
+                      existing={{ id: kr.id, title: kr.title, status: kr.status, dueDate: kr.dueDate ?? "" }}
+                    />
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="h-1.5 w-[120px] overflow-hidden rounded-full bg-[#EEF0F3]">
@@ -82,6 +95,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                     <span className="min-w-[38px] text-right text-[14px] font-bold text-ink">
                       {progress}%
                     </span>
+                    <KeyResultStatusSelect keyResultId={kr.id} status={kr.status} />
                   </div>
                 </div>
 

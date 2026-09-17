@@ -13,15 +13,14 @@ export default async function ObjectivesPage() {
       id: o.id,
       title: o.title,
       team: o.team,
+      dueDate: o.dueDate,
       progress: objectiveProgress(o.keyResults),
       taskCount: tasks.length,
       owners,
       keyResults: o.keyResults.map((kr) => ({
         id: kr.id,
         title: kr.title,
-        unit: kr.unit,
-        targetValue: kr.targetValue,
-        currentValue: kr.currentValue,
+        status: kr.status,
       })),
     };
   });
@@ -32,7 +31,7 @@ export default async function ObjectivesPage() {
         <div>
           <h1 className="font-display text-[21px] font-bold text-ink">Objectives</h1>
           <p className="mt-1 text-[13px] text-ink-secondary">
-            {cards.length} active objective{cards.length === 1 ? "" : "s"} this quarter
+            {cards.length} active objective{cards.length === 1 ? "" : "s"}
           </p>
         </div>
         <ObjectiveModal />

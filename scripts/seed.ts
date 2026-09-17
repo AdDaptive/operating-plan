@@ -29,21 +29,24 @@ async function main() {
 
   const today = new Date();
   const iso = (n: number) => addDays(today, n).toISOString();
+  const dateOnly = (n: number) => addDays(today, n).toISOString().slice(0, 10);
 
   // --- Objective 1: Grow Programmatic Revenue ---
-  const obj1 = await createObjective({ title: "Grow Programmatic Revenue", team: "Revenue & Partnerships", quarter: "Q3 2026" });
+  const obj1 = await createObjective({
+    title: "Grow Programmatic Revenue",
+    team: "Revenue & Partnerships",
+    dueDate: dateOnly(75),
+  });
   const obj1kr1 = await createKeyResult({
     title: "Increase managed ad spend to $12M",
-    unit: "$M",
-    targetValue: 12,
-    currentValue: 8.2,
+    status: "ON_TRACK",
+    dueDate: dateOnly(60),
     objectiveId: obj1.id,
   });
   const obj1kr2 = await createKeyResult({
     title: "Reduce publisher onboarding time to 3 days",
-    unit: "%",
-    targetValue: 100,
-    currentValue: 45,
+    status: "AT_RISK",
+    dueDate: dateOnly(45),
     objectiveId: obj1.id,
   });
 
@@ -56,19 +59,21 @@ async function main() {
   await createTask({ title: "Document onboarding SLA with legal", ownerId: alex.id, keyResultId: obj1kr2.id, dueDate: iso(6), status: "DONE" });
 
   // --- Objective 2: Improve Platform Reliability ---
-  const obj2 = await createObjective({ title: "Improve Platform Reliability", team: "Platform Engineering", quarter: "Q3 2026" });
+  const obj2 = await createObjective({
+    title: "Improve Platform Reliability",
+    team: "Platform Engineering",
+    dueDate: dateOnly(80),
+  });
   const obj2kr1 = await createKeyResult({
     title: "Achieve 99.95% uptime",
-    unit: "%",
-    targetValue: 100,
-    currentValue: 91,
+    status: "AT_RISK",
+    dueDate: dateOnly(50),
     objectiveId: obj2.id,
   });
   const obj2kr2 = await createKeyResult({
     title: "Cut P1 incident response time to 15 minutes",
-    unit: "%",
-    targetValue: 100,
-    currentValue: 74,
+    status: "ON_TRACK",
+    dueDate: dateOnly(40),
     objectiveId: obj2.id,
   });
 
@@ -78,19 +83,21 @@ async function main() {
   await createTask({ title: "Run Q3 incident response tabletop", ownerId: jordan.id, keyResultId: obj2kr2.id, dueDate: iso(20), status: "NOT_STARTED" });
 
   // --- Objective 3: Expand Data Partnerships ---
-  const obj3 = await createObjective({ title: "Expand Data Partnerships", team: "Data & Identity", quarter: "Q3 2026" });
+  const obj3 = await createObjective({
+    title: "Expand Data Partnerships",
+    team: "Data & Identity",
+    dueDate: dateOnly(90),
+  });
   const obj3kr1 = await createKeyResult({
     title: "Sign 5 new data partners",
-    unit: "partners",
-    targetValue: 5,
-    currentValue: 2,
+    status: "ON_TRACK",
+    dueDate: dateOnly(70),
     objectiveId: obj3.id,
   });
   const obj3kr2 = await createKeyResult({
     title: "Integrate 2 new identity graphs",
-    unit: "graphs",
-    targetValue: 2,
-    currentValue: 0.56,
+    status: "NOT_STARTED",
+    dueDate: dateOnly(65),
     objectiveId: obj3.id,
   });
 

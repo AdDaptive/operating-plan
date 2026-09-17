@@ -29,16 +29,15 @@ export type ObjectiveRow = {
   id: string;
   title: string;
   team: string | null;
-  quarter: string;
+  dueDate: string | null;
   createdAt: string;
 };
 
 export type KeyResultRow = {
   id: string;
   title: string;
-  unit: string;
-  targetValue: number;
-  currentValue: number;
+  status: TaskStatus;
+  dueDate: string | null;
   objectiveId: string;
   createdAt: string;
 };
@@ -113,16 +112,15 @@ async function ensureSchema(): Promise<void> {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       team TEXT,
-      quarter TEXT NOT NULL DEFAULT 'Q3 2026',
+      "dueDate" TEXT,
       "createdAt" TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS key_results (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
-      unit TEXT NOT NULL DEFAULT '%',
-      "targetValue" DOUBLE PRECISION NOT NULL DEFAULT 100,
-      "currentValue" DOUBLE PRECISION NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'NOT_STARTED',
+      "dueDate" TEXT,
       "objectiveId" TEXT NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
       "createdAt" TEXT NOT NULL
     );
@@ -146,6 +144,19 @@ async function ensureSchema(): Promise<void> {
       "daysBeforeDue" INTEGER NOT NULL,
       "sentAt" TEXT NOT NULL
     );
+
+    -- Migration from the original quarter / current-target-unit schema to
+    -- due dates on objectives and a manual status + due date on key
+    -- results. IF NOT EXISTS / IF EXISTS make this safe to run every time,
+    -- including against a database that already has the new schema.
+    ALTER TABLE objectives ADD COLUMN IF NOT EXISTS "dueDate" TEXT;
+    ALTER TABLE objectives DROP COLUMN IF EXISTS quarter;
+
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'NOT_STARTED';
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS "dueDate" TEXT;
+    ALTER TABLE key_results DROP COLUMN IF EXISTS unit;
+    ALTER TABLE key_results DROP COLUMN IF EXISTS "targetValue";
+    ALTER TABLE key_results DROP COLUMN IF EXISTS "currentValue";
   `);
 }
 
@@ -249,33 +260,33 @@ export async function getObjectiveById(id: string): Promise<ObjectiveRow | undef
 export async function createObjective(data: {
   title: string;
   team?: string | null;
-  quarter?: string;
+  dueDate?: string | null;
 }): Promise<ObjectiveRow> {
   const row: ObjectiveRow = {
     id: newId("obj"),
     title: data.title,
     team: data.team ?? null,
-    quarter: data.quarter || "Q3 2026",
+    dueDate: data.dueDate ?? null,
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO objectives (id, title, team, quarter, "createdAt") VALUES ($1, $2, $3, $4, $5)',
-    [row.id, row.title, row.team, row.quarter, row.createdAt]
+    'INSERT INTO objectives (id, title, team, "dueDate", "createdAt") VALUES ($1, $2, $3, $4, $5)',
+    [row.id, row.title, row.team, row.dueDate, row.createdAt]
   );
   return row;
 }
 
 export async function updateObjective(
   id: string,
-  patch: Partial<Pick<ObjectiveRow, "title" | "team" | "quarter">>
+  patch: Partial<Pick<ObjectiveRow, "title" | "team" | "dueDate">>
 ): Promise<ObjectiveRow | undefined> {
   const existing = await getObjectiveById(id);
   if (!existing) return undefined;
   const next = mergeDefined<ObjectiveRow>(existing, patch);
-  await query('UPDATE objectives SET title = $1, team = $2, quarter = $3 WHERE id = $4', [
+  await query('UPDATE objectives SET title = $1, team = $2, "dueDate" = $3 WHERE id = $4', [
     next.title,
     next.team,
-    next.quarter,
+    next.dueDate,
     id,
   ]);
   return next;
@@ -294,39 +305,41 @@ export async function listKeyResultsByObjective(objectiveId: string): Promise<Ke
   );
 }
 
+export async function getKeyResultById(id: string): Promise<KeyResultRow | undefined> {
+  return queryOne<KeyResultRow>('SELECT * FROM key_results WHERE id = $1', [id]);
+}
+
 export async function createKeyResult(data: {
   title: string;
-  unit?: string;
-  targetValue?: number;
-  currentValue?: number;
+  status?: TaskStatus;
+  dueDate?: string | null;
   objectiveId: string;
 }): Promise<KeyResultRow> {
   const row: KeyResultRow = {
     id: newId("kr"),
     title: data.title,
-    unit: data.unit || "%",
-    targetValue: data.targetValue ?? 100,
-    currentValue: data.currentValue ?? 0,
+    status: data.status ?? "NOT_STARTED",
+    dueDate: data.dueDate ?? null,
     objectiveId: data.objectiveId,
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO key_results (id, title, unit, "targetValue", "currentValue", "objectiveId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [row.id, row.title, row.unit, row.targetValue, row.currentValue, row.objectiveId, row.createdAt]
+    'INSERT INTO key_results (id, title, status, "dueDate", "objectiveId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6)',
+    [row.id, row.title, row.status, row.dueDate, row.objectiveId, row.createdAt]
   );
   return row;
 }
 
 export async function updateKeyResult(
   id: string,
-  patch: Partial<Pick<KeyResultRow, "title" | "unit" | "targetValue" | "currentValue">>
+  patch: Partial<Pick<KeyResultRow, "title" | "status" | "dueDate">>
 ): Promise<KeyResultRow | undefined> {
-  const existing = await queryOne<KeyResultRow>('SELECT * FROM key_results WHERE id = $1', [id]);
+  const existing = await getKeyResultById(id);
   if (!existing) return undefined;
   const next = mergeDefined<KeyResultRow>(existing, patch);
   await query(
-    'UPDATE key_results SET title = $1, unit = $2, "targetValue" = $3, "currentValue" = $4 WHERE id = $5',
-    [next.title, next.unit, next.targetValue, next.currentValue, id]
+    'UPDATE key_results SET title = $1, status = $2, "dueDate" = $3 WHERE id = $4',
+    [next.title, next.status, next.dueDate, id]
   );
   return next;
 }

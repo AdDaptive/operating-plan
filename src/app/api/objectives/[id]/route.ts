@@ -8,9 +8,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { title, team, quarter } = body ?? {};
+  const { title, team, dueDate } = body ?? {};
 
-  const objective = await updateObjective(params.id, { title, team, quarter });
+  const objective = await updateObjective(params.id, { title, team, dueDate });
   if (!objective) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(objective);
 }

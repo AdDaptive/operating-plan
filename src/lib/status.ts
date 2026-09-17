@@ -44,6 +44,20 @@ export const STATUS_META: Record<
   },
 };
 
+/**
+ * Since key results now carry a manually-set status (like tasks) instead of
+ * a current/target number, this is what turns that status into a progress
+ * percentage for the progress bars and the objective rollup. Tweak these
+ * five numbers any time to change how "far along" each status counts as.
+ */
+export const STATUS_PROGRESS: Record<TaskStatus, number> = {
+  NOT_STARTED: 0,
+  ON_TRACK: 60,
+  AT_RISK: 40,
+  OFF_TRACK: 20,
+  DONE: 100,
+};
+
 export function isOverdue(dueDate: string | Date, status: TaskStatus): boolean {
   if (status === "DONE") return false;
   const today = new Date();

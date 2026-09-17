@@ -2,49 +2,51 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { TaskStatus } from "@/lib/db";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
+import { STATUS_ORDER, STATUS_META } from "@/lib/status";
 
 type Existing = {
   id: string;
   title: string;
-  unit: string;
-  targetValue: number;
-  currentValue: number;
+  status: TaskStatus;
+  dueDate: string;
 };
 
 export default function KeyResultModal({
   objectiveId,
+  objectiveDueDate,
   existing,
 }: {
   objectiveId: string;
+  objectiveDueDate?: string | null;
   existing?: Existing;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [unit, setUnit] = useState(existing?.unit ?? "%");
-  const [targetValue, setTargetValue] = useState(existing?.targetValue ?? 100);
-  const [currentValue, setCurrentValue] = useState(existing?.currentValue ?? 0);
+  const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
+  const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (objectiveDueDate && dueDate && dueDate > objectiveDueDate) {
+      setError("A key result's due date can't be after the objective's due date.");
+      return;
+    }
+
+    setLoading(true);
     const url = existing ? `/api/key-results/${existing.id}` : "/api/key-results";
     const method = existing ? "PATCH" : "POST";
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        unit,
-        targetValue: Number(targetValue),
-        currentValue: Number(currentValue),
-        objectiveId,
-      }),
+      body: JSON.stringify({ title, status, dueDate, objectiveId }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -92,37 +94,39 @@ export default function KeyResultModal({
               placeholder="e.g. Increase managed ad spend to $12M"
             />
           </Field>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Current">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Status">
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                className={inputClass}
+              >
+                {STATUS_ORDER.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_META[s].label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Due date">
               <input
                 required
-                type="number"
-                value={currentValue}
-                onChange={(e) => setCurrentValue(Number(e.target.value))}
+                type="date"
+                value={dueDate}
+                max={objectiveDueDate ?? undefined}
+                onChange={(e) => setDueDate(e.target.value)}
                 className={inputClass}
-              />
-            </Field>
-            <Field label="Target">
-              <input
-                required
-                type="number"
-                value={targetValue}
-                onChange={(e) => setTargetValue(Number(e.target.value))}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Unit">
-              <input
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className={inputClass}
-                placeholder="%, $M, days"
               />
             </Field>
           </div>
+          {objectiveDueDate && (
+            <p className="text-[11.5px] text-ink-tertiary">
+              Must be on or before the objective&rsquo;s due date ({objectiveDueDate}).
+            </p>
+          )}
           <p className="text-[11.5px] text-ink-tertiary">
-            Progress rolls up automatically as current ÷ target — and the objective&rsquo;s
-            overall progress is the average of all its key results.
+            The objective&rsquo;s overall progress is the average of its key results&rsquo;
+            statuses.
           </p>
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button

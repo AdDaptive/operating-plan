@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { format } from "date-fns";
+import type { TaskStatus } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
+import { STATUS_META } from "@/lib/status";
 import { initials, colorForName } from "@/lib/avatar";
 
 function ringStyle(progress: number, color: string) {
@@ -20,10 +23,11 @@ export type ObjectiveCardData = {
   id: string;
   title: string;
   team: string | null;
+  dueDate: string | null;
   progress: number;
   taskCount: number;
   owners: string[];
-  keyResults: { id: string; title: string; unit: string; targetValue: number; currentValue: number }[];
+  keyResults: { id: string; title: string; status: TaskStatus }[];
 };
 
 export default function ObjectiveCard({ objective, index }: { objective: ObjectiveCardData; index: number }) {
@@ -41,8 +45,12 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
             OBJECTIVE
           </div>
           <div className="text-[15.5px] font-bold leading-snug text-ink">{objective.title}</div>
-          {objective.team && (
-            <div className="mt-1 text-[12px] text-ink-secondary">{objective.team}</div>
+          {(objective.team || objective.dueDate) && (
+            <div className="mt-1 text-[12px] text-ink-secondary">
+              {objective.team}
+              {objective.team && objective.dueDate ? " · " : ""}
+              {objective.dueDate ? `Due ${format(new Date(objective.dueDate), "MMM d, yyyy")}` : ""}
+            </div>
           )}
         </div>
         <div style={ringStyle(objective.progress, ringColor)}>
@@ -58,14 +66,16 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
         )}
         {objective.keyResults.map((kr) => {
           const progress = keyResultProgress(kr);
+          const meta = STATUS_META[kr.status];
           return (
             <div key={kr.id}>
               <div className="mb-1 flex items-baseline justify-between gap-2">
                 <span className="text-[12.5px] font-semibold text-[#344054]">{kr.title}</span>
-                <span className="whitespace-nowrap text-[11.5px] text-ink-tertiary">
-                  {kr.currentValue}
-                  {kr.unit === "%" ? "%" : ` ${kr.unit}`} / {kr.targetValue}
-                  {kr.unit === "%" ? "%" : ` ${kr.unit}`}
+                <span
+                  className="whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                  style={{ background: meta.bg, color: meta.text }}
+                >
+                  {meta.label}
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-[#EEF0F3]">
