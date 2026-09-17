@@ -19,16 +19,16 @@ function greeting(): string {
 }
 
 /**
- * The personal landing page: every task you own (attention-needing ones --
- * overdue / due today / due soon / flagged -- listed first, same order the
- * daily digest uses), plus the key results you own and (if you manage
+ * The personal landing page: every task you own, sorted by due date
+ * (soonest first), plus the key results you own and (if you manage
  * anyone) what your team needs attention on. src/lib/taskBuckets.ts is
- * shared with src/lib/digest.ts, so "needs attention" means the same
- * thing in both places -- but unlike the digest's own attention-only
- * framing, Home always shows the full list, not just the urgent slice.
- * Objectives/Key Results/Reports/Team stay the org-wide browsing views;
- * this is the "what's on my plate" view that moved here after My Tasks
- * became the org-wide Key Results tab.
+ * shared with src/lib/digest.ts, so "needs attention" (used for the
+ * header's task count, and for red/flagged styling) means the same thing
+ * here as it does in the digest -- but unlike the digest's own
+ * attention-only framing, Home always shows the full list, in date order,
+ * not grouped by bucket. Objectives/Key Results/Reports/Team stay the
+ * org-wide browsing views; this is the "what's on my plate" view that
+ * moved here after My Tasks became the org-wide Key Results tab.
  */
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -55,12 +55,17 @@ export default async function HomePage() {
     .filter((t) => t.ownerId === userId)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const bucket = bucketTasks(myTasks);
-  const myAttentionTasks = [...bucket.overdue, ...bucket.dueToday, ...bucket.dueSoon, ...bucket.flagged];
-  const attentionCount = myAttentionTasks.length;
-  // Every task the person owns, attention-needing ones first (already in
-  // urgency order) followed by everything else -- the "Your tasks" section
-  // shows the whole list; attentionCount above just drives the header copy.
-  const myVisibleTasks = [...myAttentionTasks, ...bucket.upcoming];
+  // Header copy still reads as an urgency signal -- only count the
+  // attention-needing buckets, not the full list below.
+  const attentionCount =
+    bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
+  // The "Your tasks" table shows every task the person owns, sorted purely
+  // by due date (soonest first) -- myTasks is already sorted that way
+  // above, so no bucket-grouping here. Grouping by bucket first (attention
+  // tasks, then everything else) reads out of date order once a task,
+  // e.g., a flagged one due next month, sorts ahead of an on-track task
+  // due next week; a plain due-date sort avoids that.
+  const myVisibleTasks = myTasks;
 
   const myKeyResults = objectives.flatMap((o) =>
     o.keyResults

@@ -65,13 +65,13 @@ export default function Sidebar({
 
       <nav className="flex flex-col gap-0.5">
         <SidebarLink href="/" icon="home" label="Home" active={pathname === "/"} />
-        <SidebarLink href="/key-results" icon="tasks" label="Key Results" active={pathname === "/key-results"} />
         <SidebarLink
           href="/objectives"
           icon="objectives"
           label="Objectives"
           active={pathname === "/objectives" || pathname.startsWith("/board/")}
         />
+        <SidebarLink href="/key-results" icon="tasks" label="Key Results" active={pathname === "/key-results"} />
         <SidebarLink href="/team" icon="team" label="Team" active={pathname === "/team"} />
         <SidebarLink href="/reports" icon="reports" label="Reports" active={pathname === "/reports"} />
       </nav>
