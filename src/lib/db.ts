@@ -15,7 +15,7 @@ import { Pool } from "pg";
 import crypto from "node:crypto";
 import { computeKeyResultStatus } from "@/lib/rollup";
 
-export type TaskStatus = "NOT_STARTED" | "ON_TRACK" | "AT_RISK" | "OFF_TRACK" | "DONE";
+export type TaskStatus = "NOT_STARTED" | "ON_TRACK" | "AT_RISK" | "DONE";
 
 export type UserRow = {
   id: string;
@@ -189,6 +189,13 @@ async function ensureSchema(): Promise<void> {
     -- the owner uses for their own status updates. Both nullable/additive.
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes TEXT;
+
+    -- "Off Track" was removed as a status option. Re-map any existing rows
+    -- (tasks, and the vestigial key_results.status column) to At Risk, the
+    -- next most severe remaining active status. A plain UPDATE with no
+    -- matching rows is a safe no-op on every later startup.
+    UPDATE tasks SET status = 'AT_RISK' WHERE status = 'OFF_TRACK';
+    UPDATE key_results SET status = 'AT_RISK' WHERE status = 'OFF_TRACK';
   `);
 }
 

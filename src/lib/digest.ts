@@ -16,7 +16,7 @@ type TaskBucket = {
   overdue: TaskForReminder[];
   dueToday: TaskForReminder[];
   dueSoon: TaskForReminder[];
-  /** AT_RISK / OFF_TRACK tasks that aren't already overdue/due soon. */
+  /** AT_RISK tasks that aren't already overdue/due soon. */
   flagged: TaskForReminder[];
   /** Everything else the person owns -- due later out, not flagged. */
   upcoming: TaskForReminder[];
@@ -62,7 +62,7 @@ export type DigestSendResult = {
 /**
  * Builds and (unless there's nothing worth telling them) sends one
  * person's daily status digest -- every task they own, split into
- * overdue / due-today / due-soon / flagged (at risk or off track) /
+ * overdue / due-today / due-soon / flagged (at risk) /
  * everything else, plus, if they manage anyone, a short rollup of their
  * direct reports' overdue or at-risk items.
  *
@@ -202,7 +202,7 @@ function buildDigestMessage(
     section("Overdue", bucket.overdue),
     section("Due today", bucket.dueToday),
     section(`Due in the next ${UPCOMING_WINDOW_DAYS} days`, bucket.dueSoon),
-    section("Flagged at risk / off track", bucket.flagged),
+    section("Flagged at risk", bucket.flagged),
     section("Everything else you own", bucket.upcoming),
     section("Your team needs attention on", teamFlags, true),
   ].filter(Boolean);
@@ -266,7 +266,7 @@ function buildHtml(user: UserRow, bucket: TaskBucket, teamFlags: TaskForReminder
     htmlSection("Overdue", bucket.overdue),
     htmlSection("Due today", bucket.dueToday),
     htmlSection(`Due in the next ${UPCOMING_WINDOW_DAYS} days`, bucket.dueSoon),
-    htmlSection("Flagged at risk / off track", bucket.flagged),
+    htmlSection("Flagged at risk", bucket.flagged),
     htmlSection("Everything else you own", bucket.upcoming),
     htmlSection("Your team needs attention on", teamFlags, true),
   ].join("");

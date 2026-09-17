@@ -4,7 +4,6 @@ export const STATUS_ORDER: TaskStatus[] = [
   "NOT_STARTED",
   "ON_TRACK",
   "AT_RISK",
-  "OFF_TRACK",
   "DONE",
 ];
 
@@ -30,12 +29,6 @@ export const STATUS_META: Record<
     text: "#92400E",
     dot: "#F59E0B",
   },
-  OFF_TRACK: {
-    label: "Off Track",
-    bg: "#FCEAEA",
-    text: "#B42318",
-    dot: "#E5484D",
-  },
   DONE: {
     label: "Done",
     bg: "#EAF1FE",
@@ -54,7 +47,6 @@ export const STATUS_PROGRESS: Record<TaskStatus, number> = {
   NOT_STARTED: 0,
   ON_TRACK: 60,
   AT_RISK: 40,
-  OFF_TRACK: 20,
   DONE: 100,
 };
 

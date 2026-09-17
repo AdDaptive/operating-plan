@@ -9,16 +9,16 @@ import { STATUS_PROGRESS } from "@/lib/status";
  * easily-adjustable convention rather than a fixed rule. Earlier in this
  * list = more severe / wins over anything later in it.
  */
-const STATUS_SEVERITY: TaskStatus[] = ["OFF_TRACK", "AT_RISK", "NOT_STARTED", "ON_TRACK", "DONE"];
+const STATUS_SEVERITY: TaskStatus[] = ["AT_RISK", "NOT_STARTED", "ON_TRACK", "DONE"];
 
 /**
  * A key result no longer has a manually-set status -- it's derived from
- * its tasks, worst status wins: if any task is Off Track, the key result
- * is Off Track; else if any task is At Risk, it's At Risk; else if any
- * task hasn't been started, it's Not Started; else if every task is Done,
- * it's Done; otherwise (everything left is On Track, or a mix of On Track
- * and Done) it's On Track. A key result with no tasks yet defaults to Not
- * Started.
+ * its tasks, worst status wins: if any task is At Risk, the key result is
+ * At Risk; else if any task hasn't been started, it's Not Started; else if
+ * every task is Done, it's Done; otherwise (everything left is On Track,
+ * or a mix of On Track and Done) it's On Track. A key result with no tasks
+ * yet defaults to Not Started. ("Off Track" was removed as a status
+ * option entirely -- see src/lib/status.ts.)
  */
 export function computeKeyResultStatus(tasks: { status: TaskStatus }[]): TaskStatus {
   if (tasks.length === 0) return "NOT_STARTED";

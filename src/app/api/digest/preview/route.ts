@@ -35,10 +35,10 @@ export async function GET(request: NextRequest) {
 <html>
   <body style="margin:0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#475467;">
     <p style="max-width:480px;">${preview.user.name} wouldn't get a digest today — nothing of theirs
-    is overdue, due today, due in the next few days, or flagged at risk/off track, and (if they
+    is overdue, due today, due in the next few days, or flagged at risk, and (if they
     manage anyone) nothing on their team is either.</p>
     <p style="max-width:480px;">To see what a real digest looks like, try setting one of their
-    tasks' due date to a past date, or its status to At Risk / Off Track, then reload this page.</p>
+    tasks' due date to a past date, or its status to At Risk, then reload this page.</p>
   </body>
 </html>`,
       { headers: { "Content-Type": "text/html; charset=utf-8" } }

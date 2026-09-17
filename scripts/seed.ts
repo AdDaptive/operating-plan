@@ -50,7 +50,7 @@ async function main() {
 
   await createTask({ title: "Renew Trade Desk API contract", ownerId: alex.id, keyResultId: obj1kr1.id, dueDate: iso(3), status: "ON_TRACK" });
   await createTask({ title: "Launch new DSP integration for retail vertical", ownerId: priya.id, keyResultId: obj1kr1.id, dueDate: iso(9), status: "AT_RISK" });
-  await createTask({ title: "Migrate legacy campaigns to new bidding engine", ownerId: sam.id, keyResultId: obj1kr1.id, dueDate: iso(-4), status: "OFF_TRACK" });
+  await createTask({ title: "Migrate legacy campaigns to new bidding engine", ownerId: sam.id, keyResultId: obj1kr1.id, dueDate: iso(-4), status: "AT_RISK" });
   await createTask({ title: "QA new floor-price logic", ownerId: mahoney.id, keyResultId: obj1kr1.id, dueDate: iso(14), status: "NOT_STARTED" });
   await createTask({ title: "Automate publisher tax form intake", ownerId: jordan.id, keyResultId: obj1kr2.id, dueDate: iso(1), status: "ON_TRACK" });
   await createTask({ title: "Build self-serve onboarding portal", ownerId: priya.id, keyResultId: obj1kr2.id, dueDate: iso(17), status: "NOT_STARTED" });
