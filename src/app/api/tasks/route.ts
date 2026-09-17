@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { createTask } from "@/lib/db";
+import { notifyTaskAssigned } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -17,5 +18,14 @@ export async function POST(req: Request) {
   }
 
   const task = await createTask({ title, status, dueDate, ownerId, keyResultId, description, notes });
+
+  // Notify the owner right away over email/Slack -- separate from (and in
+  // addition to) the daily digest. Awaited (not fire-and-forget) since a
+  // serverless function can be frozen the instant the response is sent,
+  // with no guarantee a detached async call finishes; a notifier failure
+  // is caught inside notifyTaskAssigned itself and never fails this request.
+  const creator = session.user as { id?: string; name?: string | null } | undefined;
+  await notifyTaskAssigned(task, { id: creator?.id, name: creator?.name });
+
   return NextResponse.json(task, { status: 201 });
 }
