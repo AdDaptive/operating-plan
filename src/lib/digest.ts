@@ -18,6 +18,8 @@ type TaskBucket = {
   dueSoon: TaskForReminder[];
   /** AT_RISK / OFF_TRACK tasks that aren't already overdue/due soon. */
   flagged: TaskForReminder[];
+  /** Everything else the person owns -- due later out, not flagged. */
+  upcoming: TaskForReminder[];
 };
 
 type DigestContent = {
@@ -30,10 +32,14 @@ type DigestContent = {
 
 /** Everything needed to render or send one person's digest, computed once. */
 function computeDigestContent(user: UserRow, tasks: TaskForReminder[], users: UserRow[]): DigestContent {
-  const ownTasks = tasks.filter((t) => t.ownerId === user.id);
+  const ownTasks = tasks
+    .filter((t) => t.ownerId === user.id)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const bucket = bucketTasks(ownTasks);
-  const ownItemCount =
-    bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
+  // Every task the person owns shows up in exactly one bucket above, so
+  // this is just "how many tasks do they own" -- the digest lists all of
+  // them, not just the ones needing attention right now.
+  const ownItemCount = ownTasks.length;
 
   const reportIds = new Set(users.filter((u) => u.managerId === user.id).map((u) => u.id));
   const teamFlags = reportIds.size
@@ -55,9 +61,10 @@ export type DigestSendResult = {
 
 /**
  * Builds and (unless there's nothing worth telling them) sends one
- * person's daily status digest -- their own overdue / due-today /
- * due-soon / at-risk tasks, plus, if they manage anyone, a short rollup of
- * their direct reports' overdue or at-risk items.
+ * person's daily status digest -- every task they own, split into
+ * overdue / due-today / due-soon / flagged (at risk or off track) /
+ * everything else, plus, if they manage anyone, a short rollup of their
+ * direct reports' overdue or at-risk items.
  *
  * Sends over whichever channels are configured (RESEND_API_KEY for email,
  * SLACK_BOT_TOKEN for Slack -- see src/lib/notifiers/). Either, both, or
@@ -196,6 +203,7 @@ function buildDigestMessage(
     section("Due today", bucket.dueToday),
     section(`Due in the next ${UPCOMING_WINDOW_DAYS} days`, bucket.dueSoon),
     section("Flagged at risk / off track", bucket.flagged),
+    section("Everything else you own", bucket.upcoming),
     section("Your team needs attention on", teamFlags, true),
   ].filter(Boolean);
 
@@ -259,6 +267,7 @@ function buildHtml(user: UserRow, bucket: TaskBucket, teamFlags: TaskForReminder
     htmlSection("Due today", bucket.dueToday),
     htmlSection(`Due in the next ${UPCOMING_WINDOW_DAYS} days`, bucket.dueSoon),
     htmlSection("Flagged at risk / off track", bucket.flagged),
+    htmlSection("Everything else you own", bucket.upcoming),
     htmlSection("Your team needs attention on", teamFlags, true),
   ].join("");
 
