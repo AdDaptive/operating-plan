@@ -598,6 +598,7 @@ export type TaskForReminder = TaskRow & {
   owner: UserRow;
   manager: UserRow | null;
   keyResultTitle: string;
+  objectiveId: string;
   objectiveTitle: string;
 };
 
@@ -623,6 +624,7 @@ export async function listActiveTasksForReminders(): Promise<TaskForReminder[]> 
       owner,
       manager,
       keyResultTitle: kr?.title ?? "",
+      objectiveId: objective?.id ?? "",
       objectiveTitle: objective?.title ?? "",
     };
   });

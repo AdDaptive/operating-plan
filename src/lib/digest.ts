@@ -7,20 +7,10 @@ import {
   type TaskForReminder,
   type UserRow,
 } from "@/lib/db";
-import { STATUS_META } from "@/lib/status";
-import { bucketTasks, isTeamFlag, UPCOMING_WINDOW_DAYS } from "@/lib/taskBuckets";
+import { STATUS_META, isOverdue } from "@/lib/status";
+import { bucketTasks, isTeamFlag } from "@/lib/taskBuckets";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
-
-type TaskBucket = {
-  overdue: TaskForReminder[];
-  dueToday: TaskForReminder[];
-  dueSoon: TaskForReminder[];
-  /** AT_RISK tasks that aren't already overdue/due soon. */
-  flagged: TaskForReminder[];
-  /** Everything else the person owns -- due later out, not flagged. */
-  upcoming: TaskForReminder[];
-};
 
 type DigestContent = {
   subject: string;
@@ -35,18 +25,18 @@ function computeDigestContent(user: UserRow, tasks: TaskForReminder[], users: Us
   const ownTasks = tasks
     .filter((t) => t.ownerId === user.id)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  const bucket = bucketTasks(ownTasks);
-  // Every task the person owns shows up in exactly one bucket above, so
-  // this is just "how many tasks do they own" -- the digest lists all of
-  // them, not just the ones needing attention right now.
   const ownItemCount = ownTasks.length;
+  // Only used to flag "N overdue" in the subject line -- the body itself
+  // is grouped by objective now (see groupByObjective below), not by
+  // this overdue/due-soon/flagged bucketing.
+  const overdueCount = bucketTasks(ownTasks).overdue.length;
 
   const reportIds = new Set(users.filter((u) => u.managerId === user.id).map((u) => u.id));
   const teamFlags = reportIds.size
     ? tasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t))
     : [];
 
-  const { subject, text, html } = buildDigestMessage(user, bucket, teamFlags);
+  const { subject, text, html } = buildDigestMessage(user, ownTasks, overdueCount, teamFlags);
   return { subject, text, html, ownItemCount, teamFlagCount: teamFlags.length };
 }
 
@@ -61,10 +51,10 @@ export type DigestSendResult = {
 
 /**
  * Builds and (unless there's nothing worth telling them) sends one
- * person's daily status digest -- every task they own, split into
- * overdue / due-today / due-soon / flagged (at risk) /
- * everything else, plus, if they manage anyone, a short rollup of their
- * direct reports' overdue or at-risk items.
+ * person's daily status digest -- every task they own, grouped by the
+ * objective it rolls up to (soonest-due objective first), plus, if they
+ * manage anyone, a short rollup of their direct reports' overdue or
+ * at-risk items, grouped the same way.
  *
  * Sends over whichever channels are configured (RESEND_API_KEY for email,
  * SLACK_BOT_TOKEN for Slack -- see src/lib/notifiers/). Either, both, or
@@ -176,13 +166,46 @@ export async function buildDigestPreviewForUser(userId: string): Promise<DigestP
   return { user, ...content };
 }
 
+/** One objective's worth of tasks, sorted by due date, for the grouped layout below. */
+type ObjectiveGroup = { objectiveId: string; objectiveTitle: string; tasks: TaskForReminder[] };
+
+/**
+ * Groups tasks by the objective they roll up to (via their key result),
+ * each group's tasks sorted by due date, and the groups themselves
+ * ordered by their soonest due date -- so the most time-sensitive
+ * objective leads, but everything a person owns is visible, organized by
+ * what it belongs to rather than buried in an undifferentiated list.
+ */
+function groupByObjective(tasks: TaskForReminder[]): ObjectiveGroup[] {
+  const groups = new Map<string, ObjectiveGroup>();
+  for (const t of tasks) {
+    const key = t.objectiveId || t.objectiveTitle || "none";
+    let g = groups.get(key);
+    if (!g) {
+      g = { objectiveId: t.objectiveId, objectiveTitle: t.objectiveTitle || "No objective", tasks: [] };
+      groups.set(key, g);
+    }
+    g.tasks.push(t);
+  }
+  const result = Array.from(groups.values());
+  for (const g of result) {
+    g.tasks.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }
+  result.sort((a, b) => a.tasks[0].dueDate.localeCompare(b.tasks[0].dueDate));
+  return result;
+}
+
 function dueLabel(t: TaskForReminder): string {
   return format(new Date(t.dueDate), "MMM d");
 }
 
 function taskLine(t: TaskForReminder, withOwner = false): string {
-  const owner = withOwner ? `${t.owner.name}: ` : "";
-  let line = `${owner}${t.title} (${t.objectiveTitle} / ${t.keyResultTitle}) — due ${dueLabel(t)} — ${STATUS_META[t.status].label}`;
+  const owner = withOwner ? `${t.owner.name} — ` : "";
+  const overdue = isOverdue(t.dueDate, t.status);
+  let line =
+    `${owner}${t.title}\n` +
+    `      Key result: ${t.keyResultTitle}\n` +
+    `      Due: ${dueLabel(t)}${overdue ? " (overdue)" : ""} — ${STATUS_META[t.status].label}`;
   if (t.description) line += `\n      Details: ${t.description}`;
   if (t.notes) line += `\n      Notes: ${t.notes}`;
   return line;
@@ -190,34 +213,37 @@ function taskLine(t: TaskForReminder, withOwner = false): string {
 
 function section(title: string, tasks: TaskForReminder[], withOwner = false): string {
   if (tasks.length === 0) return "";
-  return `${title} (${tasks.length}):\n${tasks.map((t) => `  • ${taskLine(t, withOwner)}`).join("\n")}`;
+  const groups = groupByObjective(tasks);
+  const body = groups
+    .map((g) => `  ${g.objectiveTitle}:\n${g.tasks.map((t) => `    • ${taskLine(t, withOwner)}`).join("\n")}`)
+    .join("\n\n");
+  return `${title} (${tasks.length}):\n\n${body}`;
 }
 
 function buildDigestMessage(
   user: UserRow,
-  bucket: TaskBucket,
+  ownTasks: TaskForReminder[],
+  overdueCount: number,
   teamFlags: TaskForReminder[]
 ): { subject: string; text: string; html: string } {
   const textSections = [
-    section("Overdue", bucket.overdue),
-    section("Due today", bucket.dueToday),
-    section(`Due in the next ${UPCOMING_WINDOW_DAYS} days`, bucket.dueSoon),
-    section("Flagged at risk", bucket.flagged),
-    section("Everything else you own", bucket.upcoming),
+    section("Your tasks", ownTasks),
     section("Your team needs attention on", teamFlags, true),
   ].filter(Boolean);
 
   const text =
     `Good morning ${user.name},\n\nHere's your AdDaptive OS status for ${format(new Date(), "MMM d, yyyy")}:\n\n` +
-    textSections.join("\n\n") +
+    (textSections.length > 0
+      ? textSections.join("\n\n")
+      : "You're all caught up -- nothing open right now.") +
     "\n";
 
   const subject =
-    bucket.overdue.length > 0
-      ? `AdDaptive OS: ${bucket.overdue.length} overdue task${bucket.overdue.length === 1 ? "" : "s"} — daily status`
+    overdueCount > 0
+      ? `AdDaptive OS: ${overdueCount} overdue task${overdueCount === 1 ? "" : "s"} — daily status`
       : `AdDaptive OS — daily status for ${format(new Date(), "MMM d")}`;
 
-  const html = buildHtml(user, bucket, teamFlags);
+  const html = buildHtml(user, ownTasks, teamFlags);
 
   return { subject, text, html };
 }
@@ -228,14 +254,20 @@ function escapeHtml(s: string): string {
 
 function htmlRow(t: TaskForReminder, withOwner: boolean): string {
   const meta = STATUS_META[t.status];
+  const overdue = isOverdue(t.dueDate, t.status);
   const owner = withOwner ? `<strong>${escapeHtml(t.owner.name)}:</strong> ` : "";
   return `
     <tr>
-      <td style="padding:6px 0;border-bottom:1px solid #F2F4F7;">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${meta.dot};margin-right:8px;"></span>
-        ${owner}${escapeHtml(t.title)}
-        <div style="margin-left:16px;color:#667085;font-size:12px;">
-          ${escapeHtml(t.objectiveTitle)} / ${escapeHtml(t.keyResultTitle)} — due ${dueLabel(t)} —
+      <td style="padding:8px 0;border-bottom:1px solid #F2F4F7;">
+        <div>
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${meta.dot};margin-right:8px;"></span>
+          ${owner}<span style="font-weight:600;">${escapeHtml(t.title)}</span>
+        </div>
+        <div style="margin-left:16px;margin-top:2px;color:#667085;font-size:12px;">
+          Key result: ${escapeHtml(t.keyResultTitle)}
+        </div>
+        <div style="margin-left:16px;margin-top:2px;color:#667085;font-size:12px;">
+          Due ${dueLabel(t)}${overdue ? ' <span style="color:#B42318;font-weight:600;">(overdue)</span>' : ""} —
           <span style="color:${meta.text};font-weight:600;">${meta.label}</span>
         </div>
         ${
@@ -254,22 +286,26 @@ function htmlRow(t: TaskForReminder, withOwner: boolean): string {
 
 function htmlSection(title: string, tasks: TaskForReminder[], withOwner = false): string {
   if (tasks.length === 0) return "";
+  const groups = groupByObjective(tasks);
   return `
-    <h3 style="font-size:13px;color:#344054;margin:20px 0 6px;">${title} (${tasks.length})</h3>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;color:#101828;">
-      ${tasks.map((t) => htmlRow(t, withOwner)).join("")}
-    </table>`;
+    <h3 style="font-size:13px;color:#344054;margin:20px 0 6px;">${escapeHtml(title)} (${tasks.length})</h3>
+    ${groups
+      .map(
+        (g, i) => `
+      <div style="margin:${i === 0 ? "0" : "14px"} 0 4px;${i === 0 ? "" : "padding-top:10px;border-top:1px solid #EAECF0;"}">
+        <div style="font-size:11px;font-weight:700;color:#667085;text-transform:uppercase;letter-spacing:0.03em;">${escapeHtml(g.objectiveTitle)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;color:#101828;">
+        ${g.tasks.map((t) => htmlRow(t, withOwner)).join("")}
+      </table>`
+      )
+      .join("")}`;
 }
 
-function buildHtml(user: UserRow, bucket: TaskBucket, teamFlags: TaskForReminder[]): string {
-  const body = [
-    htmlSection("Overdue", bucket.overdue),
-    htmlSection("Due today", bucket.dueToday),
-    htmlSection(`Due in the next ${UPCOMING_WINDOW_DAYS} days`, bucket.dueSoon),
-    htmlSection("Flagged at risk", bucket.flagged),
-    htmlSection("Everything else you own", bucket.upcoming),
-    htmlSection("Your team needs attention on", teamFlags, true),
-  ].join("");
+function buildHtml(user: UserRow, ownTasks: TaskForReminder[], teamFlags: TaskForReminder[]): string {
+  const body = [htmlSection("Your tasks", ownTasks), htmlSection("Your team needs attention on", teamFlags, true)].join(
+    ""
+  );
 
   return `<!doctype html>
 <html>
@@ -279,7 +315,7 @@ function buildHtml(user: UserRow, bucket: TaskBucket, teamFlags: TaskForReminder
       <p style="font-size:13px;color:#667085;margin:0 0 8px;">
         Your AdDaptive OS status for ${format(new Date(), "MMM d, yyyy")}
       </p>
-      ${body}
+      ${body || '<p style="font-size:13px;color:#667085;">You\'re all caught up -- nothing open right now.</p>'}
     </div>
   </body>
 </html>`;

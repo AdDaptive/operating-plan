@@ -18,17 +18,48 @@ function greeting(): string {
   return "Good evening";
 }
 
+type ObjectiveGroup<T> = { objectiveId: string; objectiveTitle: string; tasks: T[] };
+
 /**
- * The personal landing page: every task you own, sorted by due date
- * (soonest first), plus the key results you own and (if you manage
- * anyone) what your team needs attention on. src/lib/taskBuckets.ts is
- * shared with src/lib/digest.ts, so "needs attention" (used for the
- * header's task count, and for red/flagged styling) means the same thing
- * here as it does in the digest -- but unlike the digest's own
- * attention-only framing, Home always shows the full list, in date order,
- * not grouped by bucket. Objectives/Key Results/Reports/Team stay the
- * org-wide browsing views; this is the "what's on my plate" view that
- * moved here after My Tasks became the org-wide Key Results tab.
+ * Groups a due-date-sorted task list by the objective it rolls up to, so
+ * the page can show "what objective is this for" once, as a heading,
+ * instead of repeating it on every row. Groups are ordered by their
+ * earliest due date, so the most time-sensitive objective still leads --
+ * grouping by objective doesn't undo the due-date-first ordering fix,
+ * it just adds a layer of structure on top of it.
+ */
+function groupByObjective<T extends { objectiveId: string; objectiveTitle: string; dueDate: string }>(
+  tasks: T[]
+): ObjectiveGroup<T>[] {
+  const groups = new Map<string, ObjectiveGroup<T>>();
+  for (const t of tasks) {
+    const key = t.objectiveId || t.objectiveTitle || "none";
+    let g = groups.get(key);
+    if (!g) {
+      g = { objectiveId: t.objectiveId, objectiveTitle: t.objectiveTitle, tasks: [] };
+      groups.set(key, g);
+    }
+    g.tasks.push(t);
+  }
+  const result = Array.from(groups.values());
+  for (const g of result) {
+    g.tasks.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }
+  result.sort((a, b) => a.tasks[0].dueDate.localeCompare(b.tasks[0].dueDate));
+  return result;
+}
+
+/**
+ * The personal landing page: every task you own, grouped by the
+ * objective it rolls up to (soonest-due objective first, tasks within
+ * each group sorted by due date), plus the key results you own and (if
+ * you manage anyone) what your team needs attention on, grouped the same
+ * way. src/lib/taskBuckets.ts is shared with src/lib/digest.ts, so "needs
+ * attention" (used for the header's task count, and for red/flagged
+ * styling) means the same thing here as it does in the digest. Objectives
+ * / Key Results / Reports / Team stay the org-wide browsing views; this
+ * is the "what's on my plate" view that moved here after My Tasks became
+ * the org-wide Key Results tab.
  */
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -59,13 +90,9 @@ export default async function HomePage() {
   // attention-needing buckets, not the full list below.
   const attentionCount =
     bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
-  // The "Your tasks" table shows every task the person owns, sorted purely
-  // by due date (soonest first) -- myTasks is already sorted that way
-  // above, so no bucket-grouping here. Grouping by bucket first (attention
-  // tasks, then everything else) reads out of date order once a task,
-  // e.g., a flagged one due next month, sorts ahead of an on-track task
-  // due next week; a plain due-date sort avoids that.
-  const myVisibleTasks = myTasks;
+  // The "Your tasks" section shows every task the person owns, grouped by
+  // objective (see groupByObjective above) rather than one flat list.
+  const myTaskGroups = groupByObjective(myTasks);
 
   const myKeyResults = objectives.flatMap((o) =>
     o.keyResults
@@ -77,6 +104,7 @@ export default async function HomePage() {
   const teamAttentionTasks = reportIds.size
     ? allTasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t)).sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     : [];
+  const teamTaskGroups = groupByObjective(teamAttentionTasks);
 
   return (
     <>
@@ -98,7 +126,7 @@ export default async function HomePage() {
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-3">
             <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR TASKS</h2>
-            {myVisibleTasks.length === 0 ? (
+            {myTaskGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
                 <p className="text-[13.5px] font-semibold text-ink">No open tasks</p>
                 <p className="text-[12.5px] text-ink-tertiary">
@@ -106,59 +134,68 @@ export default async function HomePage() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-card border border-line bg-white">
-                <div className="grid grid-cols-[1fr_1fr_120px_130px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
-                  <span>TASK</span>
-                  <span>OBJECTIVE / KEY RESULT</span>
-                  <span>DUE DATE</span>
-                  <span>STATUS</span>
-                </div>
-                {myVisibleTasks.map((task) => {
-                  const overdue = isOverdue(task.dueDate, task.status);
-                  return (
-                    <div
-                      key={task.id}
-                      className="grid grid-cols-[1fr_1fr_120px_130px] items-start gap-3 border-t border-[#F2F4F7] px-5 py-3"
+              <div className="flex flex-col gap-5">
+                {myTaskGroups.map((group) => (
+                  <div
+                    key={group.objectiveId || group.objectiveTitle}
+                    className="overflow-hidden rounded-card border border-line bg-white"
+                  >
+                    <Link
+                      href={`/board/${group.objectiveId}`}
+                      className="block border-b border-line bg-surface-panel px-5 py-2.5 text-[11.5px] font-bold uppercase tracking-wide text-ink-secondary hover:text-accent"
                     >
-                      <div className="flex min-w-0 flex-col gap-1 pt-0.5">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <span
-                            className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
-                            style={{ background: STATUS_META[task.status].dot }}
-                          />
-                          <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
-                        </div>
-                        {task.description && (
-                          <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
-                            {task.description}
-                          </div>
-                        )}
-                        {task.notes && (
-                          <div className="ml-4 text-[12px] italic leading-snug text-ink-secondary">
-                            Notes: {task.notes}
-                          </div>
-                        )}
-                      </div>
-                      <Link
-                        href={`/board/${task.objectiveId}`}
-                        className="min-w-0 truncate pt-0.5 text-[13px] text-ink-secondary hover:text-accent"
-                      >
-                        {task.objectiveTitle}{" "}
-                        <span className="text-ink-tertiary">/ {task.keyResultTitle}</span>
-                      </Link>
-                      <div
-                        className="pt-0.5 text-[13px] font-medium"
-                        style={{ color: overdue ? "#B42318" : "#475467" }}
-                      >
-                        {format(new Date(task.dueDate), "MMM d")}
-                        {overdue ? " · overdue" : ""}
-                      </div>
-                      <div className="pt-0.5">
-                        <StatusSelect taskId={task.id} status={task.status} />
-                      </div>
+                      Objective: {group.objectiveTitle}
+                    </Link>
+                    <div className="grid grid-cols-[1fr_1fr_120px_130px] gap-3 px-5 py-2 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+                      <span>TASK</span>
+                      <span>KEY RESULT</span>
+                      <span>DUE DATE</span>
+                      <span>STATUS</span>
                     </div>
-                  );
-                })}
+                    {group.tasks.map((task) => {
+                      const overdue = isOverdue(task.dueDate, task.status);
+                      return (
+                        <div
+                          key={task.id}
+                          className="grid grid-cols-[1fr_1fr_120px_130px] items-start gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                        >
+                          <div className="flex min-w-0 flex-col gap-1 pt-0.5">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <span
+                                className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+                                style={{ background: STATUS_META[task.status].dot }}
+                              />
+                              <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                            </div>
+                            {task.description && (
+                              <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
+                                {task.description}
+                              </div>
+                            )}
+                            {task.notes && (
+                              <div className="ml-4 text-[12px] italic leading-snug text-ink-secondary">
+                                Notes: {task.notes}
+                              </div>
+                            )}
+                          </div>
+                          <span className="min-w-0 truncate pt-0.5 text-[13px] text-ink-secondary">
+                            {task.keyResultTitle}
+                          </span>
+                          <div
+                            className="pt-0.5 text-[13px] font-medium"
+                            style={{ color: overdue ? "#B42318" : "#475467" }}
+                          >
+                            {format(new Date(task.dueDate), "MMM d")}
+                            {overdue ? " · overdue" : ""}
+                          </div>
+                          <div className="pt-0.5">
+                            <StatusSelect taskId={task.id} status={task.status} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
           </section>
@@ -210,7 +247,7 @@ export default async function HomePage() {
           {reportIds.size > 0 && (
             <section className="flex flex-col gap-3">
               <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR TEAM</h2>
-              {teamAttentionTasks.length === 0 ? (
+              {teamTaskGroups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
                   <p className="text-[13.5px] font-semibold text-ink">Your team is on track</p>
                   <p className="text-[12.5px] text-ink-tertiary">
@@ -218,55 +255,64 @@ export default async function HomePage() {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-card border border-line bg-white">
-                  <div className="grid grid-cols-[1fr_1fr_120px_130px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
-                    <span>TASK</span>
-                    <span>OBJECTIVE / KEY RESULT</span>
-                    <span>DUE DATE</span>
-                    <span>STATUS</span>
-                  </div>
-                  {teamAttentionTasks.map((task) => {
-                    const overdue = isOverdue(task.dueDate, task.status);
-                    return (
-                      <div
-                        key={task.id}
-                        className="grid grid-cols-[1fr_1fr_120px_130px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                <div className="flex flex-col gap-5">
+                  {teamTaskGroups.map((group) => (
+                    <div
+                      key={group.objectiveId || group.objectiveTitle}
+                      className="overflow-hidden rounded-card border border-line bg-white"
+                    >
+                      <Link
+                        href={`/board/${group.objectiveId}`}
+                        className="block border-b border-line bg-surface-panel px-5 py-2.5 text-[11.5px] font-bold uppercase tracking-wide text-ink-secondary hover:text-accent"
                       >
-                        <div className="flex min-w-0 items-center gap-2.5">
-                          <div
-                            className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                            style={{ background: colorForName(task.owner.name) }}
-                          >
-                            {initials(task.owner.name)}
-                          </div>
-                          <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
-                        </div>
-                        <Link
-                          href={`/board/${task.objectiveId}`}
-                          className="min-w-0 truncate text-[13px] text-ink-secondary hover:text-accent"
-                        >
-                          {task.objectiveTitle}{" "}
-                          <span className="text-ink-tertiary">/ {task.keyResultTitle}</span>
-                        </Link>
-                        <div
-                          className="text-[13px] font-medium"
-                          style={{ color: overdue ? "#B42318" : "#475467" }}
-                        >
-                          {format(new Date(task.dueDate), "MMM d")}
-                          {overdue ? " · overdue" : ""}
-                        </div>
-                        <span
-                          className="w-fit whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-                          style={{
-                            background: STATUS_META[task.status].bg,
-                            color: STATUS_META[task.status].text,
-                          }}
-                        >
-                          {STATUS_META[task.status].label}
-                        </span>
+                        Objective: {group.objectiveTitle}
+                      </Link>
+                      <div className="grid grid-cols-[1fr_1fr_120px_130px] gap-3 px-5 py-2 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+                        <span>TASK</span>
+                        <span>KEY RESULT</span>
+                        <span>DUE DATE</span>
+                        <span>STATUS</span>
                       </div>
-                    );
-                  })}
+                      {group.tasks.map((task) => {
+                        const overdue = isOverdue(task.dueDate, task.status);
+                        return (
+                          <div
+                            key={task.id}
+                            className="grid grid-cols-[1fr_1fr_120px_130px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                          >
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div
+                                className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                                style={{ background: colorForName(task.owner.name) }}
+                              >
+                                {initials(task.owner.name)}
+                              </div>
+                              <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                            </div>
+                            <span className="min-w-0 truncate text-[13px] text-ink-secondary">
+                              {task.keyResultTitle}
+                            </span>
+                            <div
+                              className="text-[13px] font-medium"
+                              style={{ color: overdue ? "#B42318" : "#475467" }}
+                            >
+                              {format(new Date(task.dueDate), "MMM d")}
+                              {overdue ? " · overdue" : ""}
+                            </div>
+                            <span
+                              className="w-fit whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+                              style={{
+                                background: STATUS_META[task.status].bg,
+                                color: STATUS_META[task.status].text,
+                              }}
+                            >
+                              {STATUS_META[task.status].label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
