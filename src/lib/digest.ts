@@ -195,7 +195,10 @@ function dueLabel(t: TaskForReminder): string {
 
 function taskLine(t: TaskForReminder, withOwner = false): string {
   const owner = withOwner ? `${t.owner.name}: ` : "";
-  return `${owner}${t.title} (${t.objectiveTitle} / ${t.keyResultTitle}) — due ${dueLabel(t)} — ${STATUS_META[t.status].label}`;
+  let line = `${owner}${t.title} (${t.objectiveTitle} / ${t.keyResultTitle}) — due ${dueLabel(t)} — ${STATUS_META[t.status].label}`;
+  if (t.description) line += `\n      Details: ${t.description}`;
+  if (t.notes) line += `\n      Notes: ${t.notes}`;
+  return line;
 }
 
 function section(title: string, tasks: TaskForReminder[], withOwner = false): string {
@@ -247,6 +250,16 @@ function htmlRow(t: TaskForReminder, withOwner: boolean): string {
           ${escapeHtml(t.objectiveTitle)} / ${escapeHtml(t.keyResultTitle)} — due ${dueLabel(t)} —
           <span style="color:${meta.text};font-weight:600;">${meta.label}</span>
         </div>
+        ${
+          t.description
+            ? `<div style="margin-left:16px;margin-top:3px;color:#667085;font-size:12px;">${escapeHtml(t.description)}</div>`
+            : ""
+        }
+        ${
+          t.notes
+            ? `<div style="margin-left:16px;margin-top:3px;color:#475467;font-size:12px;font-style:italic;">Notes: ${escapeHtml(t.notes)}</div>`
+            : ""
+        }
       </td>
     </tr>`;
 }

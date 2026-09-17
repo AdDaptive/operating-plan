@@ -4,6 +4,7 @@ import type { TaskStatus } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META } from "@/lib/status";
 import { initials, colorForName } from "@/lib/avatar";
+import ObjectiveModal from "./ObjectiveModal";
 
 function ringStyle(progress: number, color: string) {
   const deg = Math.round((progress / 100) * 360);
@@ -53,9 +54,19 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
             </div>
           )}
         </div>
-        <div style={ringStyle(objective.progress, ringColor)}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[11px] font-bold text-ink">
-            {objective.progress}%
+        <div className="flex flex-shrink-0 items-center gap-1">
+          <ObjectiveModal
+            existing={{
+              id: objective.id,
+              title: objective.title,
+              team: objective.team ?? "",
+              dueDate: objective.dueDate ?? "",
+            }}
+          />
+          <div style={ringStyle(objective.progress, ringColor)}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[11px] font-bold text-ink">
+              {objective.progress}%
+            </div>
           </div>
         </div>
       </div>

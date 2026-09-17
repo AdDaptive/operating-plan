@@ -61,30 +61,42 @@ export default async function MyTasksPage() {
               return (
                 <div
                   key={task.id}
-                  className="grid grid-cols-[1fr_1fr_120px_130px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                  className="grid grid-cols-[1fr_1fr_120px_130px] items-start gap-3 border-t border-[#F2F4F7] px-5 py-3"
                 >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span
-                      className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
-                      style={{ background: STATUS_META[task.status].dot }}
-                    />
-                    <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                  <div className="flex min-w-0 flex-col gap-1 pt-0.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+                        style={{ background: STATUS_META[task.status].dot }}
+                      />
+                      <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                    </div>
+                    {task.description && (
+                      <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
+                        {task.description}
+                      </div>
+                    )}
+                    {task.notes && (
+                      <div className="ml-4 text-[12px] italic leading-snug text-ink-secondary">
+                        Notes: {task.notes}
+                      </div>
+                    )}
                   </div>
                   <Link
                     href={`/board/${task.objectiveId}`}
-                    className="min-w-0 truncate text-[13px] text-ink-secondary hover:text-accent"
+                    className="min-w-0 truncate pt-0.5 text-[13px] text-ink-secondary hover:text-accent"
                   >
                     {task.objectiveTitle}{" "}
                     <span className="text-ink-tertiary">/ {task.keyResultTitle}</span>
                   </Link>
                   <div
-                    className="text-[13px] font-medium"
+                    className="pt-0.5 text-[13px] font-medium"
                     style={{ color: overdue ? "#B42318" : "#475467" }}
                   >
                     {format(new Date(task.dueDate), "MMM d")}
                     {overdue ? " · overdue" : ""}
                   </div>
-                  <div>
+                  <div className="pt-0.5">
                     <StatusSelect taskId={task.id} status={task.status} />
                   </div>
                 </div>

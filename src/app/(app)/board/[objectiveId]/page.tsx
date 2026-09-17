@@ -10,6 +10,7 @@ import KeyResultStatusSelect from "@/components/KeyResultStatusSelect";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
+import ObjectiveModal from "@/components/ObjectiveModal";
 
 export default async function BoardPage({ params }: { params: { objectiveId: string } }) {
   const objective = await getObjectiveFull(params.objectiveId);
@@ -22,18 +23,26 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
   return (
     <>
       <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-white px-7 py-[18px]">
-        <div className="text-[14.5px]">
+        <div className="flex items-center gap-2 text-[14.5px]">
           <Link href="/objectives" className="text-ink-tertiary hover:text-ink-secondary">
             Objectives
           </Link>
-          <span className="mx-1.5 text-ink-tertiary">/</span>
+          <span className="text-ink-tertiary">/</span>
           <span className="font-semibold text-ink">
             {objective.title}
             {objective.dueDate ? ` — Due ${format(new Date(objective.dueDate), "MMM d, yyyy")}` : ""}
           </span>
-          <span className="ml-3 rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent">
+          <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent">
             {overallProgress}% overall
           </span>
+          <ObjectiveModal
+            existing={{
+              id: objective.id,
+              title: objective.title,
+              team: objective.team ?? "",
+              dueDate: objective.dueDate ?? "",
+            }}
+          />
         </div>
         <div className="flex items-center gap-3">
           {allKeyResults.length > 0 && (
@@ -116,18 +125,30 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                   return (
                     <div
                       key={task.id}
-                      className="grid grid-cols-[1fr_190px_120px_130px_74px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                      className="grid grid-cols-[1fr_190px_120px_130px_74px] items-start gap-3 border-t border-[#F2F4F7] px-5 py-3"
                     >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span
-                          className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
-                          style={{ background: STATUS_META[task.status].dot }}
-                        />
-                        <span className="truncate text-[13.5px] font-medium text-ink">
-                          {task.title}
-                        </span>
+                      <div className="flex min-w-0 flex-col gap-1 pt-0.5">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
+                            style={{ background: STATUS_META[task.status].dot }}
+                          />
+                          <span className="truncate text-[13.5px] font-medium text-ink">
+                            {task.title}
+                          </span>
+                        </div>
+                        {task.description && (
+                          <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
+                            {task.description}
+                          </div>
+                        )}
+                        {task.notes && (
+                          <div className="ml-4 text-[12px] italic leading-snug text-ink-secondary">
+                            Notes: {task.notes}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pt-0.5">
                         <div
                           className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                           style={{ background: colorForName(task.owner.name) }}
@@ -139,16 +160,16 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                         </span>
                       </div>
                       <div
-                        className="text-[13px] font-medium"
+                        className="pt-0.5 text-[13px] font-medium"
                         style={{ color: overdue ? "#B42318" : "#475467" }}
                       >
                         {format(new Date(task.dueDate), "MMM d")}
                         {overdue ? " · overdue" : ""}
                       </div>
-                      <div>
+                      <div className="pt-0.5">
                         <StatusSelect taskId={task.id} status={task.status} />
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 pt-0.5">
                         <TaskModal
                           keyResults={allKeyResults}
                           users={users}
@@ -159,6 +180,8 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                             dueDate: format(new Date(task.dueDate), "yyyy-MM-dd"),
                             ownerId: task.ownerId,
                             keyResultId: task.keyResultId,
+                            description: task.description ?? "",
+                            notes: task.notes ?? "",
                           }}
                         />
                         <DeleteTaskButton taskId={task.id} />

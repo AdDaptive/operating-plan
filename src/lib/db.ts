@@ -49,6 +49,10 @@ export type TaskRow = {
   dueDate: string;
   ownerId: string;
   keyResultId: string;
+  /** Longer description of what the task actually involves. */
+  description: string | null;
+  /** Freeform status updates the owner keeps for themselves/others -- distinct from `description`. */
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -139,6 +143,8 @@ async function ensureSchema(): Promise<void> {
       "dueDate" TEXT NOT NULL,
       "ownerId" TEXT NOT NULL REFERENCES users(id),
       "keyResultId" TEXT NOT NULL REFERENCES key_results(id) ON DELETE CASCADE,
+      description TEXT,
+      notes TEXT,
       "createdAt" TEXT NOT NULL,
       "updatedAt" TEXT NOT NULL
     );
@@ -171,6 +177,11 @@ async function ensureSchema(): Promise<void> {
     ALTER TABLE key_results DROP COLUMN IF EXISTS unit;
     ALTER TABLE key_results DROP COLUMN IF EXISTS "targetValue";
     ALTER TABLE key_results DROP COLUMN IF EXISTS "currentValue";
+
+    -- Tasks get a longer description plus a separate freeform notes field
+    -- the owner uses for their own status updates. Both nullable/additive.
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes TEXT;
   `);
 }
 
@@ -370,6 +381,8 @@ export async function createTask(data: {
   dueDate: string;
   ownerId: string;
   keyResultId: string;
+  description?: string | null;
+  notes?: string | null;
 }): Promise<TaskRow> {
   const now = nowIso();
   const row: TaskRow = {
@@ -379,12 +392,14 @@ export async function createTask(data: {
     dueDate: new Date(data.dueDate).toISOString(),
     ownerId: data.ownerId,
     keyResultId: data.keyResultId,
+    description: data.description ?? null,
+    notes: data.notes ?? null,
     createdAt: now,
     updatedAt: now,
   };
   await query(
-    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "keyResultId", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.keyResultId, row.createdAt, row.updatedAt]
+    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "keyResultId", description, notes, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.keyResultId, row.description, row.notes, row.createdAt, row.updatedAt]
   );
   return row;
 }
@@ -395,7 +410,9 @@ export async function getTaskById(id: string): Promise<TaskRow | undefined> {
 
 export async function updateTask(
   id: string,
-  patch: Partial<Pick<TaskRow, "title" | "status" | "dueDate" | "ownerId" | "keyResultId">>
+  patch: Partial<
+    Pick<TaskRow, "title" | "status" | "dueDate" | "ownerId" | "keyResultId" | "description" | "notes">
+  >
 ): Promise<TaskRow | undefined> {
   const existing = await getTaskById(id);
   if (!existing) return undefined;
@@ -406,8 +423,18 @@ export async function updateTask(
     updatedAt: nowIso(),
   };
   await query(
-    'UPDATE tasks SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4, "keyResultId" = $5, "updatedAt" = $6 WHERE id = $7',
-    [next.title, next.status, next.dueDate, next.ownerId, next.keyResultId, next.updatedAt, id]
+    'UPDATE tasks SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4, "keyResultId" = $5, description = $6, notes = $7, "updatedAt" = $8 WHERE id = $9',
+    [
+      next.title,
+      next.status,
+      next.dueDate,
+      next.ownerId,
+      next.keyResultId,
+      next.description,
+      next.notes,
+      next.updatedAt,
+      id,
+    ]
   );
   return next;
 }

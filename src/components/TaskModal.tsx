@@ -14,6 +14,8 @@ type Existing = {
   dueDate: string;
   ownerId: string;
   keyResultId: string;
+  description: string;
+  notes: string;
 };
 
 export default function TaskModal({
@@ -32,6 +34,8 @@ export default function TaskModal({
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [ownerId, setOwnerId] = useState(existing?.ownerId ?? users[0]?.id ?? "");
   const [keyResultId, setKeyResultId] = useState(existing?.keyResultId ?? keyResults[0]?.id ?? "");
+  const [description, setDescription] = useState(existing?.description ?? "");
+  const [notes, setNotes] = useState(existing?.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +48,15 @@ export default function TaskModal({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, status, dueDate, ownerId, keyResultId }),
+      body: JSON.stringify({
+        title,
+        status,
+        dueDate,
+        ownerId,
+        keyResultId,
+        description: description || null,
+        notes: notes || null,
+      }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -143,6 +155,24 @@ export default function TaskModal({
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="Details">
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={inputClass}
+              placeholder="What this task actually involves"
+            />
+          </Field>
+          <Field label="Notes">
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={inputClass}
+              placeholder="Status updates for yourself or whoever's watching this task"
+            />
           </Field>
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button
