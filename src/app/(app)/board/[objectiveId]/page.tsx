@@ -10,7 +10,6 @@ import KeyResultStatusSelect from "@/components/KeyResultStatusSelect";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
-import RunDigestButton from "@/components/RunDigestButton";
 
 export default async function BoardPage({ params }: { params: { objectiveId: string } }) {
   const objective = await getObjectiveFull(params.objectiveId);
@@ -37,15 +36,6 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <a
-            href="/api/digest/preview"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-[#D0D5DD] bg-white px-3.5 py-2 text-[13px] font-semibold text-[#344054] hover:bg-surface-panel"
-          >
-            Preview my digest
-          </a>
-          <RunDigestButton />
           {allKeyResults.length > 0 && (
             <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} />
           )}

@@ -40,6 +40,30 @@ function isTeamFlag(t: TaskForReminder): boolean {
   return days < 0 || t.status === "AT_RISK" || t.status === "OFF_TRACK";
 }
 
+type DigestContent = {
+  subject: string;
+  text: string;
+  html: string;
+  ownItemCount: number;
+  teamFlagCount: number;
+};
+
+/** Everything needed to render or send one person's digest, computed once. */
+function computeDigestContent(user: UserRow, tasks: TaskForReminder[], users: UserRow[]): DigestContent {
+  const ownTasks = tasks.filter((t) => t.ownerId === user.id);
+  const bucket = bucketTasks(ownTasks);
+  const ownItemCount =
+    bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
+
+  const reportIds = new Set(users.filter((u) => u.managerId === user.id).map((u) => u.id));
+  const teamFlags = reportIds.size
+    ? tasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t))
+    : [];
+
+  const { subject, text, html } = buildDigestMessage(user, bucket, teamFlags);
+  return { subject, text, html, ownItemCount, teamFlagCount: teamFlags.length };
+}
+
 export type DigestSendResult = {
   recipientEmail: string;
   recipientName: string;
@@ -50,64 +74,90 @@ export type DigestSendResult = {
 };
 
 /**
- * Builds and sends one daily status digest per person who has something
- * worth telling them about: their own overdue / due-today / due-soon /
- * at-risk tasks, plus -- if they manage anyone -- a short rollup of their
- * direct reports' overdue or at-risk items.
+ * Builds and (unless there's nothing worth telling them) sends one
+ * person's daily status digest -- their own overdue / due-today /
+ * due-soon / at-risk tasks, plus, if they manage anyone, a short rollup of
+ * their direct reports' overdue or at-risk items.
  *
  * Sends over whichever channels are configured (RESEND_API_KEY for email,
  * SLACK_BOT_TOKEN for Slack -- see src/lib/notifiers/). Either, both, or
- * neither can be set; with neither set this still runs and logs what it
- * would have sent, which is useful for testing the digest content itself.
+ * neither can be set; with neither set this still "sends" (logs what it
+ * would have sent) so the digest content itself can be exercised.
  *
- * Idempotent per person per channel per day (digest_logs table), so
- * triggering this more than once in a day (the manual button, then the
- * cron, say) won't double-send.
+ * Idempotent per person per channel per day (digest_logs table) unless
+ * `force` is set -- pass `force: true` for an explicit one-person send
+ * (the "Send" button next to someone on the Team page), where a person
+ * deliberately asking for a resend should get one even if the automatic
+ * daily sweep already ran for them today. Pass `tasks`/`users` to reuse
+ * data a caller already fetched for many people at once (see
+ * runDailyDigest) instead of re-querying per user.
+ */
+export async function sendDigestToUser(
+  userId: string,
+  opts?: { force?: boolean; tasks?: TaskForReminder[]; users?: UserRow[] }
+): Promise<DigestSendResult | null> {
+  const tasks = opts?.tasks ?? (await listActiveTasksForReminders());
+  const users = opts?.users ?? (await listUsers());
+  const user = users.find((u) => u.id === userId);
+  if (!user) return null;
+
+  const content = computeDigestContent(user, tasks, users);
+
+  if (content.ownItemCount === 0 && content.teamFlagCount === 0) {
+    return {
+      recipientEmail: user.email,
+      recipientName: user.name,
+      emailSent: false,
+      slackSent: false,
+      ownItemCount: 0,
+      teamFlagCount: 0,
+    };
+  }
+
+  let emailSent = false;
+  let slackSent = false;
+
+  const alreadyEmailed = !opts?.force && (await findDigestSentToday(user.email, "email"));
+  if (!alreadyEmailed) {
+    const r = await sendDigestEmail(user.email, content.subject, content.html, content.text);
+    emailSent = r.sent;
+    if (r.sent) await createDigestLog({ recipientEmail: user.email, channel: "email" });
+  }
+
+  const alreadySlacked = !opts?.force && (await findDigestSentToday(user.email, "slack"));
+  if (!alreadySlacked) {
+    const r = await sendDigestSlackDM(user.email, content.text);
+    slackSent = r.sent;
+    if (r.sent) await createDigestLog({ recipientEmail: user.email, channel: "slack" });
+  }
+
+  return {
+    recipientEmail: user.email,
+    recipientName: user.name,
+    emailSent,
+    slackSent,
+    ownItemCount: content.ownItemCount,
+    teamFlagCount: content.teamFlagCount,
+  };
+}
+
+/**
+ * Sends the daily digest to every person who has something worth telling
+ * them about. Used by the "Send digest to everyone" button (Team page) and
+ * the daily cron (see api/digest/run/route.ts). Uses the per-person/
+ * per-channel daily dedup in sendDigestToUser (no `force`), since this is
+ * the automatic sweep and shouldn't double-send if triggered twice in a
+ * day (the button, then the cron).
  */
 export async function runDailyDigest(): Promise<DigestSendResult[]> {
   const [tasks, users] = await Promise.all([listActiveTasksForReminders(), listUsers()]);
   const results: DigestSendResult[] = [];
 
   for (const user of users) {
-    const ownTasks = tasks.filter((t) => t.ownerId === user.id);
-    const bucket = bucketTasks(ownTasks);
-    const ownItemCount =
-      bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
-
-    const reportIds = new Set(users.filter((u) => u.managerId === user.id).map((u) => u.id));
-    const teamFlags = reportIds.size
-      ? tasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t))
-      : [];
-
-    if (ownItemCount === 0 && teamFlags.length === 0) continue;
-
-    const { subject, text, html } = buildDigestMessage(user, bucket, teamFlags);
-
-    let emailSent = false;
-    let slackSent = false;
-
-    const alreadyEmailed = await findDigestSentToday(user.email, "email");
-    if (!alreadyEmailed) {
-      const r = await sendDigestEmail(user.email, subject, html, text);
-      emailSent = r.sent;
-      if (r.sent) await createDigestLog({ recipientEmail: user.email, channel: "email" });
+    const result = await sendDigestToUser(user.id, { tasks, users });
+    if (result && (result.ownItemCount > 0 || result.teamFlagCount > 0)) {
+      results.push(result);
     }
-
-    const alreadySlacked = await findDigestSentToday(user.email, "slack");
-    if (!alreadySlacked) {
-      const r = await sendDigestSlackDM(user.email, text);
-      slackSent = r.sent;
-      if (r.sent) await createDigestLog({ recipientEmail: user.email, channel: "slack" });
-    }
-
-    results.push({
-      recipientEmail: user.email,
-      recipientName: user.name,
-      emailSent,
-      slackSent,
-      ownItemCount,
-      teamFlagCount: teamFlags.length,
-    });
   }
 
   return results;
@@ -124,28 +174,19 @@ export type DigestPreview = {
 
 /**
  * Builds (but never sends, and never touches digest_logs) the digest
- * content for one user -- what the "Preview my digest" link on the board
- * page renders. Lets you see exactly what the email/Slack message would
- * look like without RESEND_API_KEY or SLACK_BOT_TOKEN configured yet, and
- * without it counting as an actual send for today.
+ * content for one user -- what the "Preview" link next to someone on the
+ * Team page renders for that person. Lets you see exactly what the
+ * email/Slack message would look like without RESEND_API_KEY or
+ * SLACK_BOT_TOKEN configured yet, and without it counting as an actual
+ * send for today.
  */
 export async function buildDigestPreviewForUser(userId: string): Promise<DigestPreview | null> {
   const [tasks, users] = await Promise.all([listActiveTasksForReminders(), listUsers()]);
   const user = users.find((u) => u.id === userId);
   if (!user) return null;
 
-  const ownTasks = tasks.filter((t) => t.ownerId === user.id);
-  const bucket = bucketTasks(ownTasks);
-  const ownItemCount =
-    bucket.overdue.length + bucket.dueToday.length + bucket.dueSoon.length + bucket.flagged.length;
-
-  const reportIds = new Set(users.filter((u2) => u2.managerId === user.id).map((u2) => u2.id));
-  const teamFlags = reportIds.size
-    ? tasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t))
-    : [];
-
-  const { subject, text, html } = buildDigestMessage(user, bucket, teamFlags);
-  return { user, subject, html, text, ownItemCount, teamFlagCount: teamFlags.length };
+  const content = computeDigestContent(user, tasks, users);
+  return { user, ...content };
 }
 
 function dueLabel(t: TaskForReminder): string {

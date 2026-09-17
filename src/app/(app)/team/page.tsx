@@ -1,6 +1,8 @@
 import { listUsers, getObjectivesFull } from "@/lib/db";
 import { isOverdue } from "@/lib/status";
 import { initials, colorForName } from "@/lib/avatar";
+import RunDigestButton from "@/components/RunDigestButton";
+import TeamMemberDigestActions from "@/components/TeamMemberDigestActions";
 
 export default async function TeamPage() {
   const [users, objectives] = await Promise.all([listUsers(), getObjectivesFull()]);
@@ -32,21 +34,23 @@ export default async function TeamPage() {
             {rows.length} {rows.length === 1 ? "person" : "people"}
           </p>
         </div>
+        <RunDigestButton />
       </div>
 
       <div className="flex-grow overflow-y-auto p-7">
         <div className="overflow-hidden rounded-card border border-line bg-white">
-          <div className="grid grid-cols-[1fr_1fr_110px_110px_110px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+          <div className="grid grid-cols-[1fr_1fr_100px_100px_90px_210px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
             <span>PERSON</span>
             <span>REPORTS TO</span>
             <span>OPEN TASKS</span>
             <span>OVERDUE</span>
             <span>TOTAL</span>
+            <span>DAILY DIGEST</span>
           </div>
           {rows.map((r) => (
             <div
               key={r.id}
-              className="grid grid-cols-[1fr_1fr_110px_110px_110px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+              className="grid grid-cols-[1fr_1fr_100px_100px_90px_210px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
             >
               <div className="flex min-w-0 items-center gap-2.5">
                 <div
@@ -69,6 +73,9 @@ export default async function TeamPage() {
                 {r.overdueTasks}
               </div>
               <div className="text-[13.5px] text-ink-secondary">{r.totalTasks}</div>
+              <div>
+                <TeamMemberDigestActions userId={r.id} />
+              </div>
             </div>
           ))}
         </div>

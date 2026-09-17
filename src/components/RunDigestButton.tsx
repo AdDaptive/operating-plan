@@ -34,7 +34,7 @@ export default function RunDigestButton() {
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
         </svg>
-        {loading ? "Sending…" : "Send daily digest now"}
+        {loading ? "Sending…" : "Send digest to everyone"}
       </button>
       {message && (
         <div className="absolute right-0 top-[calc(100%+8px)] w-64 rounded-lg border border-line bg-white p-3 text-[12px] leading-relaxed text-ink-secondary shadow-lg">
