@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import SignOutButton from "./SignOutButton";
 import { initials, colorForName } from "@/lib/avatar";
 
@@ -46,6 +49,8 @@ export default function Sidebar({
   objectives: { id: string; title: string; progress: number }[];
   user: { name: string; email: string };
 }) {
+  const pathname = usePathname();
+
   return (
     <div className="flex w-[252px] flex-shrink-0 flex-col border-r border-line bg-white p-3.5">
       <div className="flex items-center gap-2.5 px-2 pb-4 pt-1">
@@ -59,11 +64,16 @@ export default function Sidebar({
       </div>
 
       <nav className="flex flex-col gap-0.5">
-        <SidebarLink href="/objectives" icon="home" label="Home" />
-        <SidebarLink href="/objectives" icon="tasks" label="My Tasks" />
-        <SidebarLink href="/objectives" icon="objectives" label="Objectives" active />
-        <SidebarLink href="/objectives" icon="team" label="Team" />
-        <SidebarLink href="/objectives" icon="reports" label="Reports" />
+        <SidebarLink href="/" icon="home" label="Home" active={pathname === "/"} />
+        <SidebarLink href="/my-tasks" icon="tasks" label="My Tasks" active={pathname === "/my-tasks"} />
+        <SidebarLink
+          href="/objectives"
+          icon="objectives"
+          label="Objectives"
+          active={pathname === "/objectives" || pathname.startsWith("/board/")}
+        />
+        <SidebarLink href="/team" icon="team" label="Team" active={pathname === "/team"} />
+        <SidebarLink href="/reports" icon="reports" label="Reports" active={pathname === "/reports"} />
       </nav>
 
       <div className="mb-2 mt-5 px-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
