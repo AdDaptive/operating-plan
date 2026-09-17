@@ -38,7 +38,7 @@ export default function SignupPage() {
       router.push("/login");
       return;
     }
-    router.push("/objectives");
+    router.push("/");
     router.refresh();
   }
 

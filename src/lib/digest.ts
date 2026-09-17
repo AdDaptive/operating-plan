@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import {
   listActiveTasksForReminders,
   listUsers,
@@ -8,11 +8,9 @@ import {
   type UserRow,
 } from "@/lib/db";
 import { STATUS_META } from "@/lib/status";
+import { bucketTasks, isTeamFlag, UPCOMING_WINDOW_DAYS } from "@/lib/taskBuckets";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
-
-/** Tasks due this many days out (inclusive) count as "due soon". */
-const UPCOMING_WINDOW_DAYS = 3;
 
 type TaskBucket = {
   overdue: TaskForReminder[];
@@ -21,24 +19,6 @@ type TaskBucket = {
   /** AT_RISK / OFF_TRACK tasks that aren't already overdue/due soon. */
   flagged: TaskForReminder[];
 };
-
-function bucketTasks(tasks: TaskForReminder[]): TaskBucket {
-  const today = startOfDay(new Date());
-  const bucket: TaskBucket = { overdue: [], dueToday: [], dueSoon: [], flagged: [] };
-  for (const t of tasks) {
-    const days = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), today);
-    if (days < 0) bucket.overdue.push(t);
-    else if (days === 0) bucket.dueToday.push(t);
-    else if (days <= UPCOMING_WINDOW_DAYS) bucket.dueSoon.push(t);
-    else if (t.status === "AT_RISK" || t.status === "OFF_TRACK") bucket.flagged.push(t);
-  }
-  return bucket;
-}
-
-function isTeamFlag(t: TaskForReminder): boolean {
-  const days = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), startOfDay(new Date()));
-  return days < 0 || t.status === "AT_RISK" || t.status === "OFF_TRACK";
-}
 
 type DigestContent = {
   subject: string;
