@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function RunRemindersButton() {
+export default function RunDigestButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -11,16 +11,16 @@ export default function RunRemindersButton() {
   async function onClick() {
     setLoading(true);
     setMessage(null);
-    const res = await fetch("/api/reminders/run", { method: "POST" });
+    const res = await fetch("/api/digest/run", { method: "POST" });
     const data = await res.json().catch(() => ({ sent: 0 }));
     setLoading(false);
     setMessage(
       data.sent > 0
-        ? `Sent ${data.sent} reminder${data.sent === 1 ? "" : "s"} (check the server console — sending is stubbed).`
-        : "No tasks are due in 3 or 1 day right now."
+        ? `Sent today's digest to ${data.sent} ${data.sent === 1 ? "person" : "people"} (over whichever of email/Slack is configured — see the server console for details).`
+        : "Nobody has anything overdue, due soon, or flagged right now — nothing to send."
     );
     router.refresh();
-    setTimeout(() => setMessage(null), 6000);
+    setTimeout(() => setMessage(null), 8000);
   }
 
   return (
@@ -34,7 +34,7 @@ export default function RunRemindersButton() {
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
         </svg>
-        {loading ? "Checking…" : "Run reminders now"}
+        {loading ? "Sending…" : "Send daily digest now"}
       </button>
       {message && (
         <div className="absolute right-0 top-[calc(100%+8px)] w-64 rounded-lg border border-line bg-white p-3 text-[12px] leading-relaxed text-ink-secondary shadow-lg">

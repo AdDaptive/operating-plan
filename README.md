@@ -1,29 +1,72 @@
 # AdDaptive OS
 
 An internal operating-software MVP: objectives, key results, and tasks, with
-individual accounts and automated owner/manager reminders.
+individual accounts and a daily status digest (email and/or Slack) for
+task owners and their managers.
 
 ## What's here
 
 - **Accounts** — email + password, one account per person (`src/lib/auth.ts`,
   `/signup`, `/login`).
 - **Objectives → Key Results → Tasks** — each task has an owner and belongs
-  to a key result; each key result has a due-ready progress value; each
-  objective's overall progress is the average of its key results'
-  (`src/lib/rollup.ts`).
+  to a key result; each key result has its own due date and a manually-set
+  status; each objective's overall progress is the average of its key
+  results' status-derived progress (`src/lib/rollup.ts`, `src/lib/status.ts`).
 - **Color-coded status + due dates** — Not Started / On Track / At Risk /
   Off Track / Done, with overdue due dates shown in red
   (`src/lib/status.ts`).
-- **Automated reminders** — a sweep that finds tasks due in 3 days or 1 day
-  and logs a reminder to the owner and the owner's manager
-  (`src/lib/reminders.ts`). Actually *sending* email is stubbed — it logs to
-  the console and records a row in `reminder_logs` — swap in a real
-  provider (Resend, SendGrid, Postmark, Microsoft 365 SMTP, etc.) in that
-  one file when you're ready. Trigger it two ways:
-  - The **"Run reminders now"** button on any task board (calls
-    `POST /api/reminders/run`).
-  - `npm run reminders`, meant to be run on a schedule (cron, a serverless
-    scheduled function, GitHub Actions, etc.) once a day.
+- **Daily status digest (email + Slack)** — once a day, everyone who has
+  something worth knowing about gets a message: their own overdue /
+  due-today / due-in-the-next-3-days / at-risk-or-off-track tasks, and — if
+  they manage anyone — a short rollup of their direct reports' overdue or
+  flagged items (`src/lib/digest.ts`). It sends over whichever channel(s)
+  you've configured:
+  - **Email**, via [Resend](https://resend.com) — set `RESEND_API_KEY`
+    (and optionally `DIGEST_FROM_EMAIL`) — see `src/lib/notifiers/email.ts`.
+  - **Slack**, via a Slack app's bot token — set `SLACK_BOT_TOKEN` — see
+    `src/lib/notifiers/slack.ts` and "Setting up Slack" below.
+
+  With neither env var set, it still runs and logs what it *would* have
+  sent to the console, which is useful for checking the digest's content
+  without actually emailing/Slacking anyone. Trigger it two ways:
+  - The **"Send daily digest now"** button on any task board (calls
+    `POST /api/digest/run`).
+  - `npm run digest`, or the scheduled `GET /api/digest/run` (see
+    `vercel.json`), meant to run once a day.
+
+  Sends are logged per person/per channel/per day in the `digest_logs`
+  table so triggering it more than once in a day (the button, then the
+  cron) doesn't double-send.
+
+### Setting up Slack
+
+1. Go to <https://api.slack.com/apps> → "Create New App" → "From scratch."
+   Name it (e.g. "AdDaptive OS") and pick your workspace.
+2. Under **OAuth & Permissions** → **Scopes** → **Bot Token Scopes**, add:
+   - `users:read.email` (find a Slack account from someone's AdDaptive OS
+     email address — no separate "Slack user ID" field needed anywhere in
+     this app)
+   - `im:write` (open a DM with them)
+   - `chat:write` (post the digest)
+3. Still on **OAuth & Permissions**, click **Install to Workspace** and
+   approve it.
+4. Copy the **Bot User OAuth Token** (starts with `xoxb-`) shown at the top
+   of that page into your `SLACK_BOT_TOKEN` environment variable.
+
+That's it — no channel or webhook to configure. Each digest is a direct
+message from the app's bot to that person, found by matching the email
+address already in your `users` table.
+
+### Setting up email (Resend)
+
+1. Sign up at <https://resend.com> (free tier is fine to start).
+2. Copy an API key from the dashboard into `RESEND_API_KEY`.
+3. By default, sends go from Resend's shared `onboarding@resend.dev`
+   address, which **only delivers to the email you signed up to Resend
+   with** — fine for testing solo, not for emailing a whole team. To email
+   everyone, verify your own sending domain in Resend (Domains → Add
+   Domain, then a few DNS records), then set `DIGEST_FROM_EMAIL` to an
+   address on that domain, e.g. `"AdDaptive OS <status@yourcompany.com>"`.
 
 ## Database: Postgres
 
@@ -60,7 +103,7 @@ npm run dev        # http://localhost:3000
 Demo login: **mmahoney@addaptive.com** / **password123**
 (also seeded: jlee@, achen@, pnair@, sortiz@addaptive.com, all with the
 same password — jlee is the manager the others report to, so you can see
-reminders reach both an owner and their manager).
+the digest reach both an owner and their manager).
 
 `npm run build && npm run start` runs it in production mode.
 
@@ -87,15 +130,18 @@ charge, no upgrade needed) comfortably covers an app like this.
    - `DATABASE_URL` — see the free Postgres options below
    - `NEXTAUTH_SECRET` — a long random string (`openssl rand -base64 32`)
    - `NEXTAUTH_URL` — your deployed URL, e.g. `https://your-app.vercel.app`
+   - `RESEND_API_KEY` and/or `SLACK_BOT_TOKEN` — for the daily digest (see
+     "Setting up Slack" / "Setting up email" above); skip either you don't
+     want to use
 4. Deploy. Then run the seed script once **against that database** from
    your own machine: `DATABASE_URL="<the deployed connection string>" npm
    run seed`. (Or skip it and just sign up for real accounts at `/signup`.)
-5. For reminders on a schedule, Vercel's free tier supports **Vercel Cron
-   Jobs** (1 included free) — already configured in `vercel.json`, hitting
-   `GET /api/reminders/run` once a day at 13:00 UTC. Just add a
-   `CRON_SECRET` environment variable (any long random string) — the route
-   checks for it so random visitors can't trigger sends, and Vercel
-   automatically sends it as a bearer token to your cron jobs.
+5. For the daily digest on a schedule, Vercel's free tier supports
+   **Vercel Cron Jobs** (1 included free) — already configured in
+   `vercel.json`, hitting `GET /api/digest/run` once a day at 13:00 UTC.
+   Just add a `CRON_SECRET` environment variable (any long random string)
+   — the route checks for it so random visitors can't trigger sends, and
+   Vercel automatically sends it as a bearer token to your cron jobs.
 
 Free Postgres to pair with it (either works fine with `db.ts` as-is, since
 it turns on SSL automatically for any non-localhost connection string):
@@ -114,9 +160,10 @@ fine if you need it always-instant.
 
 1. New → Web Service, connect the repo, build command `npm run build`,
    start command `npm run start`.
-2. Add the same three environment variables as above (`DATABASE_URL`,
-   `NEXTAUTH_SECRET`, `NEXTAUTH_URL`).
-3. Seed and schedule reminders the same way as Option A (Render has cron
+2. Add the same environment variables as above (`DATABASE_URL`,
+   `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, and `RESEND_API_KEY`/`SLACK_BOT_TOKEN`
+   for the digest).
+3. Seed and schedule the digest the same way as Option A (Render has cron
    jobs too, as a separate free-tier service type).
 
 ### Deploying to Netlify (if you come back to it later)
@@ -134,22 +181,15 @@ fine if you need it always-instant.
    - `DATABASE_URL` (skip if Netlify Database set it for you)
    - `NEXTAUTH_SECRET` — a long random string (`openssl rand -base64 32`)
    - `NEXTAUTH_URL` — your site's URL, e.g. `https://your-site.netlify.app`
+   - `RESEND_API_KEY` and/or `SLACK_BOT_TOKEN` — for the daily digest
 4. Deploy. Then run the seed script once **against that database** to
    create its tables and demo data — easiest from your own machine:
    `DATABASE_URL="<the deployed connection string>" npm run seed`.
    (Or skip seeding and just sign up for real accounts at `/signup`.)
-5. For reminders on a schedule in production, add a Netlify Scheduled
-   Function that calls `runReminderSweep()` from `src/lib/reminders.ts` (or
-   hits `POST /api/reminders/run` on a cron), since nothing calls it
-   automatically yet — see "Not yet built" below.
-
-## Other notes for taking this further
-
-- **Real email**: `src/lib/reminders.ts` has one `console.log` to replace
-  with a real provider call (Resend, SendGrid, Postmark, Microsoft 365
-  SMTP, etc.).
-- **SSL**: `db.ts` turns on SSL automatically for any non-localhost
-  connection string, which is what Netlify Database/Neon/Supabase expect.
+5. For the daily digest in production, add a Netlify Scheduled Function
+   that calls `runDailyDigest()` from `src/lib/digest.ts` (or hits
+   `POST /api/digest/run` on a cron), since nothing calls it automatically
+   on Netlify yet — see "Not yet built" below.
 
 ## Project layout
 
@@ -160,30 +200,34 @@ src/
     (app)/layout.tsx              — shared sidebar shell for signed-in pages
     (app)/objectives/             — objectives grid (rollup view)
     (app)/board/[objectiveId]/    — task board for one objective
+    (app)/my-tasks/               — tasks owned by the signed-in user
+    (app)/team/                   — directory + workload per person
+    (app)/reports/                — org-wide status + progress overview
     api/                          — REST-ish routes the client calls
   components/                     — modals, task rows, status pill/select, etc.
   lib/
     db.ts                         — the whole data layer (Postgres via `pg`)
     auth.ts                       — NextAuth credentials config
-    reminders.ts                  — the reminder sweep
+    digest.ts                     — builds + sends the daily digest
+    notifiers/email.ts            — Resend email sending
+    notifiers/slack.ts            — Slack DM sending (Slack Web API)
     rollup.ts, status.ts, avatar.ts
 scripts/
   seed.ts                         — demo data (run against any DATABASE_URL)
-  send-reminders.ts               — CLI entry point for `npm run reminders`
+  send-digest.ts                  — CLI entry point for `npm run digest`
 netlify.toml                      — Netlify build + Next.js runtime config
-vercel.json                       — Vercel Cron Job config (daily reminder sweep)
+vercel.json                       — Vercel Cron Job config (daily digest sweep)
 ```
 
 ## What's intentionally left as an MVP
 
-- Reminders aren't on an automatic schedule yet — trigger manually (button
-  or `npm run reminders`) until you wire up a Netlify Scheduled Function or
-  similar cron.
-- Real email sending for reminders is stubbed (see above).
-- No password reset flow, no team/org management UI, no notifications
-  beyond the reminder log.
-- Key result progress is a simple current/target number you set directly —
-  there's no automatic roll-up from task completion percentages, since
-  that mapping is genuinely a product decision (does one done task move
-  the needle 25%? Only if all 4 tasks are equal-sized?) worth deciding
-  deliberately rather than guessing.
+- No password reset flow, no team/org management UI beyond the read-only
+  Team page.
+- No "edit objective" screen (only "New objective"), so an objective
+  created before a schema change may need re-creating to pick up new
+  fields.
+- Key result progress is driven by a manually-set status, mapped to a
+  percentage via `STATUS_PROGRESS` in `src/lib/status.ts` — a deliberate,
+  easily-adjustable convention rather than an automatic roll-up from task
+  completion, since that mapping is genuinely a product decision worth
+  choosing rather than guessing.

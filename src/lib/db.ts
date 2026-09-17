@@ -62,6 +62,13 @@ export type ReminderLogRow = {
   sentAt: string;
 };
 
+export type DigestLogRow = {
+  id: string;
+  recipientEmail: string;
+  channel: string;
+  sentAt: string;
+};
+
 const globalForDb = globalThis as unknown as {
   __addaptivePool?: Pool;
   __addaptiveSchemaReady?: Promise<void>;
@@ -142,6 +149,13 @@ async function ensureSchema(): Promise<void> {
       "recipientRole" TEXT NOT NULL,
       "recipientEmail" TEXT NOT NULL,
       "daysBeforeDue" INTEGER NOT NULL,
+      "sentAt" TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS digest_logs (
+      id TEXT PRIMARY KEY,
+      "recipientEmail" TEXT NOT NULL,
+      channel TEXT NOT NULL,
       "sentAt" TEXT NOT NULL
     );
 
@@ -437,6 +451,40 @@ export async function createReminderLog(data: {
   return row;
 }
 
+// ---------- Digest logs ----------
+
+/** Has this recipient already gotten a digest on this channel today? Keeps
+ * the daily sweep idempotent if it's triggered more than once (manual
+ * button + cron both firing, a retried cron invocation, etc). */
+export async function findDigestSentToday(
+  recipientEmail: string,
+  channel: string
+): Promise<DigestLogRow | undefined> {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  return queryOne<DigestLogRow>(
+    'SELECT * FROM digest_logs WHERE "recipientEmail" = $1 AND channel = $2 AND "sentAt" >= $3 ORDER BY "sentAt" DESC LIMIT 1',
+    [recipientEmail, channel, startOfToday.toISOString()]
+  );
+}
+
+export async function createDigestLog(data: {
+  recipientEmail: string;
+  channel: string;
+}): Promise<DigestLogRow> {
+  const row: DigestLogRow = {
+    id: newId("dig"),
+    recipientEmail: data.recipientEmail,
+    channel: data.channel,
+    sentAt: nowIso(),
+  };
+  await query(
+    'INSERT INTO digest_logs (id, "recipientEmail", channel, "sentAt") VALUES ($1, $2, $3, $4)',
+    [row.id, row.recipientEmail, row.channel, row.sentAt]
+  );
+  return row;
+}
+
 // ---------- Composite reads (the "includes" Prisma would have done) ----------
 
 export type TaskWithOwner = TaskRow & { owner: UserRow };
@@ -525,6 +573,7 @@ export async function listActiveTasksForReminders(): Promise<TaskForReminder[]> 
 
 /** Wipes all rows (dev/seed convenience) -- keeps the schema. */
 export async function resetAllData(): Promise<void> {
+  await query("DELETE FROM digest_logs");
   await query("DELETE FROM reminder_logs");
   await query("DELETE FROM tasks");
   await query("DELETE FROM key_results");

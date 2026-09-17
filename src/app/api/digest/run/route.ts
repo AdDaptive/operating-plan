@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { runReminderSweep } from "@/lib/reminders";
+import { runDailyDigest } from "@/lib/digest";
 
-// Manual trigger from the UI's "Run reminders now" button — requires a
+// Manual trigger from the UI's "Send daily digest now" button — requires a
 // signed-in session, same as any other page action.
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -11,7 +11,7 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const results = await runReminderSweep();
+  const results = await runDailyDigest();
   return NextResponse.json({ sent: results.length, results });
 }
 
@@ -35,6 +35,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const results = await runReminderSweep();
+  const results = await runDailyDigest();
   return NextResponse.json({ sent: results.length, results });
 }

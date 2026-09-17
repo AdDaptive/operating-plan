@@ -10,7 +10,7 @@ import KeyResultStatusSelect from "@/components/KeyResultStatusSelect";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
-import RunRemindersButton from "@/components/RunRemindersButton";
+import RunDigestButton from "@/components/RunDigestButton";
 
 export default async function BoardPage({ params }: { params: { objectiveId: string } }) {
   const objective = await getObjectiveFull(params.objectiveId);
@@ -37,7 +37,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <RunRemindersButton />
+          <RunDigestButton />
           {allKeyResults.length > 0 && (
             <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} />
           )}
