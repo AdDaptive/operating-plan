@@ -2,15 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { TaskStatus } from "@/lib/db";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
-import { STATUS_ORDER, STATUS_META } from "@/lib/status";
 
 type Existing = {
   id: string;
   title: string;
-  status: TaskStatus;
   dueDate: string;
   ownerId: string;
 };
@@ -29,7 +26,6 @@ export default function KeyResultModal({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [ownerId, setOwnerId] = useState(existing?.ownerId ?? "");
   const [loading, setLoading] = useState(false);
@@ -50,7 +46,7 @@ export default function KeyResultModal({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, status, dueDate, ownerId: ownerId || null, objectiveId }),
+      body: JSON.stringify({ title, dueDate, ownerId: ownerId || null, objectiveId }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -98,30 +94,17 @@ export default function KeyResultModal({
               placeholder="e.g. Increase managed ad spend to $12M"
             />
           </Field>
-          <Field label="Owner">
-            <select
-              value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Unassigned</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Status">
+            <Field label="Owner">
               <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
+                value={ownerId}
+                onChange={(e) => setOwnerId(e.target.value)}
                 className={inputClass}
               >
-                {STATUS_ORDER.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_META[s].label}
+                <option value="">Unassigned</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
                   </option>
                 ))}
               </select>
@@ -143,8 +126,9 @@ export default function KeyResultModal({
             </p>
           )}
           <p className="text-[11.5px] text-ink-tertiary">
-            The objective&rsquo;s overall progress is the average of its key results&rsquo;
-            statuses.
+            A key result&rsquo;s status isn&rsquo;t set manually -- it&rsquo;s the worst status
+            among its tasks (e.g. any task At Risk makes the key result At Risk), and the
+            objective&rsquo;s overall progress is the average of its key results&rsquo; statuses.
           </p>
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button

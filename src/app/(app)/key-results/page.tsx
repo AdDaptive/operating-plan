@@ -5,7 +5,7 @@ import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
-import KeyResultStatusSelect from "@/components/KeyResultStatusSelect";
+import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
@@ -106,7 +106,6 @@ export default async function KeyResultsPage() {
                                 existing={{
                                   id: kr.id,
                                   title: kr.title,
-                                  status: kr.status,
                                   dueDate: kr.dueDate ?? "",
                                   ownerId: kr.ownerId ?? "",
                                 }}
@@ -122,7 +121,7 @@ export default async function KeyResultsPage() {
                               <span className="min-w-[38px] text-right text-[14px] font-bold text-ink">
                                 {progress}%
                               </span>
-                              <KeyResultStatusSelect keyResultId={kr.id} status={kr.status} />
+                              <KeyResultStatusBadge status={kr.status} />
                             </div>
                           </div>
 

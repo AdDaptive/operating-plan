@@ -13,6 +13,7 @@
  */
 import { Pool } from "pg";
 import crypto from "node:crypto";
+import { computeKeyResultStatus } from "@/lib/rollup";
 
 export type TaskStatus = "NOT_STARTED" | "ON_TRACK" | "AT_RISK" | "OFF_TRACK" | "DONE";
 
@@ -342,7 +343,6 @@ export async function getKeyResultById(id: string): Promise<KeyResultRow | undef
 
 export async function createKeyResult(data: {
   title: string;
-  status?: TaskStatus;
   dueDate?: string | null;
   ownerId?: string | null;
   objectiveId: string;
@@ -350,7 +350,12 @@ export async function createKeyResult(data: {
   const row: KeyResultRow = {
     id: newId("kr"),
     title: data.title,
-    status: data.status ?? "NOT_STARTED",
+    // Vestigial: a key result's real status is derived from its tasks
+    // (computeKeyResultStatus) and overridden whenever it's read via
+    // getObjectivesFull/getObjectiveFull. This column is never consulted
+    // for that, so what's stored here doesn't matter -- kept only because
+    // the column is still NOT NULL.
+    status: "NOT_STARTED",
     dueDate: data.dueDate ?? null,
     ownerId: data.ownerId ?? null,
     objectiveId: data.objectiveId,
@@ -365,14 +370,14 @@ export async function createKeyResult(data: {
 
 export async function updateKeyResult(
   id: string,
-  patch: Partial<Pick<KeyResultRow, "title" | "status" | "dueDate" | "ownerId">>
+  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId">>
 ): Promise<KeyResultRow | undefined> {
   const existing = await getKeyResultById(id);
   if (!existing) return undefined;
   const next = mergeDefined<KeyResultRow>(existing, patch);
   await query(
-    'UPDATE key_results SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4 WHERE id = $5',
-    [next.title, next.status, next.dueDate, next.ownerId, id]
+    'UPDATE key_results SET title = $1, "dueDate" = $2, "ownerId" = $3 WHERE id = $4',
+    [next.title, next.dueDate, next.ownerId, id]
   );
   return next;
 }
@@ -539,13 +544,17 @@ export async function getObjectivesFull(): Promise<ObjectiveFull[]> {
     ...o,
     keyResults: keyResults
       .filter((kr) => kr.objectiveId === o.id)
-      .map((kr) => ({
-        ...kr,
-        owner: kr.ownerId ? (userById.get(kr.ownerId) ?? null) : null,
-        tasks: tasks
+      .map((kr) => {
+        const krTasks = tasks
           .filter((t) => t.keyResultId === kr.id)
-          .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow })),
-      })),
+          .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow }));
+        return {
+          ...kr,
+          status: computeKeyResultStatus(krTasks),
+          owner: kr.ownerId ? (userById.get(kr.ownerId) ?? null) : null,
+          tasks: krTasks,
+        };
+      }),
   }));
 }
 
@@ -564,13 +573,17 @@ export async function getObjectiveFull(id: string): Promise<ObjectiveFull | null
 
   return {
     ...objective,
-    keyResults: keyResults.map((kr) => ({
-      ...kr,
-      owner: kr.ownerId ? (userById.get(kr.ownerId) ?? null) : null,
-      tasks: tasks
+    keyResults: keyResults.map((kr) => {
+      const krTasks = tasks
         .filter((t) => t.keyResultId === kr.id)
-        .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow })),
-    })),
+        .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow }));
+      return {
+        ...kr,
+        status: computeKeyResultStatus(krTasks),
+        owner: kr.ownerId ? (userById.get(kr.ownerId) ?? null) : null,
+        tasks: krTasks,
+      };
+    }),
   };
 }
 

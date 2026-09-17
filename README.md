@@ -8,10 +8,12 @@ task owners and their managers.
 
 - **Accounts** — email + password, one account per person (`src/lib/auth.ts`,
   `/signup`, `/login`).
-- **Objectives → Key Results → Tasks** — each task has an owner and belongs
-  to a key result; each key result has its own due date and a manually-set
-  status; each objective's overall progress is the average of its key
-  results' status-derived progress (`src/lib/rollup.ts`, `src/lib/status.ts`).
+- **Objectives → Key Results → Tasks** — each task has an owner, a due
+  date, a status, and optional Details/Notes; each key result has its own
+  owner and due date, and its status is derived automatically (worst
+  status among its tasks wins); each objective's overall progress is the
+  average of its key results' status-derived progress (`src/lib/rollup.ts`,
+  `src/lib/status.ts`).
 - **Color-coded status + due dates** — Not Started / On Track / At Risk /
   Off Track / Done, with overdue due dates shown in red
   (`src/lib/status.ts`).
@@ -226,8 +228,11 @@ vercel.json                       — Vercel Cron Job config (daily digest sweep
 - No "edit objective" screen (only "New objective"), so an objective
   created before a schema change may need re-creating to pick up new
   fields.
-- Key result progress is driven by a manually-set status, mapped to a
-  percentage via `STATUS_PROGRESS` in `src/lib/status.ts` — a deliberate,
-  easily-adjustable convention rather than an automatic roll-up from task
-  completion, since that mapping is genuinely a product decision worth
-  choosing rather than guessing.
+- A key result's status isn't set manually -- it's derived from its own
+  tasks (`computeKeyResultStatus` in `src/lib/rollup.ts`): worst status
+  wins, in the order Off Track > At Risk > Not Started > On Track > Done,
+  and a key result with no tasks yet defaults to Not Started. That status
+  is then mapped to a percentage via `STATUS_PROGRESS` in
+  `src/lib/status.ts` for the progress bars/rollup. Both the severity
+  order and the percentage mapping are deliberate, easily-adjustable
+  conventions rather than fixed rules.

@@ -39,13 +39,11 @@ async function main() {
   });
   const obj1kr1 = await createKeyResult({
     title: "Increase managed ad spend to $12M",
-    status: "ON_TRACK",
     dueDate: dateOnly(60),
     objectiveId: obj1.id,
   });
   const obj1kr2 = await createKeyResult({
     title: "Reduce publisher onboarding time to 3 days",
-    status: "AT_RISK",
     dueDate: dateOnly(45),
     objectiveId: obj1.id,
   });
@@ -66,13 +64,11 @@ async function main() {
   });
   const obj2kr1 = await createKeyResult({
     title: "Achieve 99.95% uptime",
-    status: "AT_RISK",
     dueDate: dateOnly(50),
     objectiveId: obj2.id,
   });
   const obj2kr2 = await createKeyResult({
     title: "Cut P1 incident response time to 15 minutes",
-    status: "ON_TRACK",
     dueDate: dateOnly(40),
     objectiveId: obj2.id,
   });
@@ -90,13 +86,11 @@ async function main() {
   });
   const obj3kr1 = await createKeyResult({
     title: "Sign 5 new data partners",
-    status: "ON_TRACK",
     dueDate: dateOnly(70),
     objectiveId: obj3.id,
   });
   const obj3kr2 = await createKeyResult({
     title: "Integrate 2 new identity graphs",
-    status: "NOT_STARTED",
     dueDate: dateOnly(65),
     objectiveId: obj3.id,
   });

@@ -1,7 +1,40 @@
 import type { TaskStatus } from "@/lib/db";
 import { STATUS_PROGRESS } from "@/lib/status";
 
-/** A key result's progress, driven by its manually-set status. */
+/**
+ * Worst-status-wins order used to derive a key result's status from its
+ * tasks (see computeKeyResultStatus below). This is deliberately its own
+ * ranking -- separate from STATUS_ORDER (dropdown display order) and
+ * STATUS_PROGRESS (percentage mapping) -- and, like STATUS_PROGRESS, is an
+ * easily-adjustable convention rather than a fixed rule. Earlier in this
+ * list = more severe / wins over anything later in it.
+ */
+const STATUS_SEVERITY: TaskStatus[] = ["OFF_TRACK", "AT_RISK", "NOT_STARTED", "ON_TRACK", "DONE"];
+
+/**
+ * A key result no longer has a manually-set status -- it's derived from
+ * its tasks, worst status wins: if any task is Off Track, the key result
+ * is Off Track; else if any task is At Risk, it's At Risk; else if any
+ * task hasn't been started, it's Not Started; else if every task is Done,
+ * it's Done; otherwise (everything left is On Track, or a mix of On Track
+ * and Done) it's On Track. A key result with no tasks yet defaults to Not
+ * Started.
+ */
+export function computeKeyResultStatus(tasks: { status: TaskStatus }[]): TaskStatus {
+  if (tasks.length === 0) return "NOT_STARTED";
+  let worst: TaskStatus = "DONE";
+  let worstRank = STATUS_SEVERITY.indexOf(worst);
+  for (const t of tasks) {
+    const rank = STATUS_SEVERITY.indexOf(t.status);
+    if (rank < worstRank) {
+      worst = t.status;
+      worstRank = rank;
+    }
+  }
+  return worst;
+}
+
+/** A key result's progress, driven by its (derived) status. */
 export function keyResultProgress(kr: { status: TaskStatus }): number {
   return STATUS_PROGRESS[kr.status];
 }
