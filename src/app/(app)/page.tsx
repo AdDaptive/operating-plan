@@ -125,6 +125,50 @@ export default async function HomePage() {
       <div className="flex-grow overflow-y-auto p-7">
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-3">
+            <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR KEY RESULTS</h2>
+            {myKeyResults.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
+                <p className="text-[13.5px] font-semibold text-ink">No key results assigned to you</p>
+                <p className="text-[12.5px] text-ink-tertiary">
+                  Key results you own will show up here — see any objective&rsquo;s board to set an owner.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-card border border-line bg-white">
+                {myKeyResults.map((kr) => {
+                  const progress = keyResultProgress(kr);
+                  const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
+                  return (
+                    <Link
+                      key={kr.id}
+                      href={`/board/${kr.objectiveId}`}
+                      className="flex items-center justify-between gap-3 border-t border-[#F2F4F7] px-5 py-3 first:border-t-0 hover:bg-surface-panel"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-[13.5px] font-semibold text-ink">{kr.title}</div>
+                        <div className="mt-0.5 truncate text-[12px] text-ink-tertiary">
+                          {kr.objectiveTitle}
+                          {kr.dueDate && (
+                            <span style={{ color: krOverdue ? "#B42318" : undefined }}>
+                              {" "}
+                              · Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
+                              {krOverdue ? " · overdue" : ""}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-2.5">
+                        <span className="text-[13px] font-bold text-ink">{progress}%</span>
+                        <KeyResultStatusBadge status={kr.status} />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3">
             <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR TASKS</h2>
             {myTaskGroups.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
@@ -196,50 +240,6 @@ export default async function HomePage() {
                     })}
                   </div>
                 ))}
-              </div>
-            )}
-          </section>
-
-          <section className="flex flex-col gap-3">
-            <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR KEY RESULTS</h2>
-            {myKeyResults.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
-                <p className="text-[13.5px] font-semibold text-ink">No key results assigned to you</p>
-                <p className="text-[12.5px] text-ink-tertiary">
-                  Key results you own will show up here — see any objective&rsquo;s board to set an owner.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-card border border-line bg-white">
-                {myKeyResults.map((kr) => {
-                  const progress = keyResultProgress(kr);
-                  const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
-                  return (
-                    <Link
-                      key={kr.id}
-                      href={`/board/${kr.objectiveId}`}
-                      className="flex items-center justify-between gap-3 border-t border-[#F2F4F7] px-5 py-3 first:border-t-0 hover:bg-surface-panel"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-[13.5px] font-semibold text-ink">{kr.title}</div>
-                        <div className="mt-0.5 truncate text-[12px] text-ink-tertiary">
-                          {kr.objectiveTitle}
-                          {kr.dueDate && (
-                            <span style={{ color: krOverdue ? "#B42318" : undefined }}>
-                              {" "}
-                              · Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
-                              {krOverdue ? " · overdue" : ""}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-shrink-0 items-center gap-2.5">
-                        <span className="text-[13px] font-bold text-ink">{progress}%</span>
-                        <KeyResultStatusBadge status={kr.status} />
-                      </div>
-                    </Link>
-                  );
-                })}
               </div>
             )}
           </section>
