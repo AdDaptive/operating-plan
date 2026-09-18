@@ -164,48 +164,78 @@ function baseUrl(): string {
 }
 
 /**
- * Emails an admin-invited person their activation link (see POST
- * /api/admin/invite and the "Resend invite" action on the Team page).
- * Email-only, deliberately -- unlike the digest/assignment notifications,
- * there's no Slack DM attempt here: `sendDigestSlackDM` looks someone up
- * by email in the workspace, and a brand-new invitee who's never touched
- * this app yet may not resolve to anything meaningful over Slack. Returns
- * the send result (rather than swallowing it like the other notifiers
- * here) because the admin-facing UI shows whether it actually went out.
+ * Shared by sendAccountInviteEmail and sendPasswordResetEmail below -- the
+ * two emails are the same mechanics (a link to /api/set-password's front
+ * end with a token, expiring in 7 days) and differ only in subject/copy
+ * and which page the link points at. Email-only, deliberately -- unlike
+ * the digest/assignment notifications, there's no Slack DM attempt here:
+ * `sendDigestSlackDM` looks someone up by email in the workspace, and
+ * someone mid-invite or mid-reset may not resolve to anything meaningful
+ * over Slack (a brand-new invitee almost certainly won't). Returns the
+ * send result (rather than swallowing it like the other notifiers here)
+ * because the admin-facing UI shows whether it actually went out.
  */
-export async function sendAccountInviteEmail(
-  invitee: UserRow,
-  inviterName: string
+async function sendPasswordSetEmail(
+  user: UserRow,
+  opts: { page: "activate" | "reset-password"; subject: string; intro: string; cta: string }
 ): Promise<SendResult> {
-  if (!invitee.inviteToken) {
-    return { sent: false, reason: "no invite token set on this account" };
+  if (!user.inviteToken) {
+    return { sent: false, reason: "no pending token set on this account" };
   }
 
-  const activateUrl = `${baseUrl()}/activate?token=${invitee.inviteToken}`;
-  const subject = `You've been added to AdDaptive OS`;
+  const setPasswordUrl = `${baseUrl()}/${opts.page}?token=${user.inviteToken}`;
 
   const text =
-    `${inviterName} added you to AdDaptive OS.\n\n` +
-    `Set your password to finish setting up your account:\n${activateUrl}\n\n` +
+    `${opts.intro}\n\n` +
+    `${opts.cta}:\n${setPasswordUrl}\n\n` +
     `This link expires in 7 days.`;
 
   const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:24px;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
     <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:24px;">
-      <p style="font-size:15px;color:#101828;margin:0 0 12px;">
-        ${escapeHtml(inviterName)} added you to <strong>AdDaptive OS</strong>.
-      </p>
       <p style="font-size:13px;color:#667085;margin:0 0 18px;">
-        Set your password to finish setting up your account.
+        ${escapeHtml(opts.intro)}
       </p>
-      <a href="${activateUrl}" style="display:inline-block;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
-        Set your password
+      <a href="${setPasswordUrl}" style="display:inline-block;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
+        ${escapeHtml(opts.cta)}
       </a>
       <p style="font-size:12px;color:#98A2B3;margin:18px 0 0;">This link expires in 7 days.</p>
     </div>
   </body>
 </html>`;
 
-  return sendDigestEmail(invitee.email, subject, html, text);
+  return sendDigestEmail(user.email, opts.subject, html, text);
+}
+
+/**
+ * Emails an admin-invited person their activation link (see POST
+ * /api/admin/invite and the "Resend invite" action on the Team page).
+ */
+export async function sendAccountInviteEmail(
+  invitee: UserRow,
+  inviterName: string
+): Promise<SendResult> {
+  return sendPasswordSetEmail(invitee, {
+    page: "activate",
+    subject: "You've been added to AdDaptive OS",
+    intro: `${inviterName} added you to AdDaptive OS. Set your password to finish setting up your account.`,
+    cta: "Set your password",
+  });
+}
+
+/**
+ * Emails a password-reset link (see POST /api/forgot-password). Called
+ * with a user row that already has a freshly regenerated `inviteToken` on
+ * it (via regenerateInviteToken) -- the same token field used for
+ * invites, since the two flows are mechanically identical (see
+ * setUserPassword's doc comment in src/lib/db.ts).
+ */
+export async function sendPasswordResetEmail(user: UserRow): Promise<SendResult> {
+  return sendPasswordSetEmail(user, {
+    page: "reset-password",
+    subject: "Reset your AdDaptive OS password",
+    intro: "Someone (hopefully you) requested a password reset for your AdDaptive OS account.",
+    cta: "Reset your password",
+  });
 }

@@ -207,7 +207,11 @@ async function ensureSchema(): Promise<void> {
     -- passwordHash is set, so it has to allow NULL (existing rows already
     -- have one and are unaffected). isAdmin gates who can invite new
     -- accounts; inviteToken/inviteTokenExpiresAt back the /activate flow
-    -- (cleared once a password is set -- see activateUser below).
+    -- (cleared once a password is set -- see setUserPassword below). Also
+    -- reused for "forgot password": regenerateInviteToken issues a fresh
+    -- one for an already-active account exactly the same way, and
+    -- setUserPassword doesn't care whether this is a first-time claim or
+    -- a reset -- it just sets the password and clears the token either way.
     ALTER TABLE users ALTER COLUMN "passwordHash" DROP NOT NULL;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS "inviteToken" TEXT;
@@ -373,8 +377,15 @@ export async function getUserByInviteToken(token: string): Promise<UserRow | und
   return queryOne<UserRow>('SELECT * FROM users WHERE "inviteToken" = $1', [token]);
 }
 
-/** Sets the password an invited person chose on /activate, and clears the now-used invite token. */
-export async function activateUser(userId: string, passwordHash: string): Promise<void> {
+/**
+ * Sets a person's password and clears their pending token -- used both to
+ * claim a first-time invite (POST /api/set-password from /activate) and
+ * to complete a "forgot password" reset (same route, from /reset-password).
+ * Both flows end up here because the two are mechanically identical: a
+ * valid, unexpired token authorizes setting a new password, regardless of
+ * whether the account already had one.
+ */
+export async function setUserPassword(userId: string, passwordHash: string): Promise<void> {
   await query(
     'UPDATE users SET "passwordHash" = $1, "inviteToken" = NULL, "inviteTokenExpiresAt" = NULL WHERE id = $2',
     [passwordHash, userId]

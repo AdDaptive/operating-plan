@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -18,6 +20,7 @@ export default function LoginPage() {
     const res = await signIn("credentials", {
       email,
       password,
+      remember: remember ? "true" : "false",
       redirect: false,
     });
     setLoading(false);
@@ -89,6 +92,9 @@ export default function LoginPage() {
                 <label htmlFor="password" className="text-[13px] font-semibold text-[#344054]">
                   Password
                 </label>
+                <Link href="/forgot-password" className="text-[12.5px] font-semibold text-accent hover:underline">
+                  Forgot password?
+                </Link>
               </div>
               <input
                 id="password"
@@ -101,6 +107,16 @@ export default function LoginPage() {
                 className="w-full rounded-lg border border-[#D0D5DD] px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
               />
             </div>
+
+            <label className="flex items-center gap-2 text-[13px] text-ink-secondary">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-[#D0D5DD]"
+              />
+              Remember me for 30 days
+            </label>
 
             {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
 

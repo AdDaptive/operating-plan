@@ -36,7 +36,7 @@ export default async function TeamPage() {
       overdueTasks,
       isAdmin: u.isAdmin,
       // No passwordHash yet means the invite hasn't been claimed --
-      // see createInvitedUser/activateUser in src/lib/db.ts.
+      // see createInvitedUser/setUserPassword in src/lib/db.ts.
       pending: !u.passwordHash,
     };
   });
