@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -115,15 +114,7 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center text-[13.5px] text-ink-secondary">
-            New to AdDaptive OS?{" "}
-            <Link href="/signup" className="font-semibold text-accent hover:underline">
-              Create an account
-            </Link>
-          </div>
-
-          <div className="rounded-lg border border-dashed border-[#D0D5DD] bg-surface-panel p-3 text-[12px] leading-relaxed text-ink-secondary">
-            Demo account: <span className="font-semibold text-ink">mahoney@addaptive.com</span> / password{" "}
-            <span className="font-semibold text-ink">password123</span>
+            Don&rsquo;t have an account? Ask your admin to invite you from the Team page.
           </div>
         </div>
       </div>

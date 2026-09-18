@@ -21,8 +21,14 @@ export type UserRow = {
   id: string;
   name: string;
   email: string;
-  passwordHash: string;
+  /** Null for an invited-but-not-yet-activated account -- they can't sign in until they set one via /activate. */
+  passwordHash: string | null;
   managerId: string | null;
+  /** Admins can invite new accounts (see createInvitedUser) and set isAdmin on invite. */
+  isAdmin: boolean;
+  /** Set while an invite is pending; cleared once the person sets their password. */
+  inviteToken: string | null;
+  inviteTokenExpiresAt: string | null;
   createdAt: string;
 };
 
@@ -116,7 +122,7 @@ async function ensureSchema(): Promise<void> {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
-      "passwordHash" TEXT NOT NULL,
+      "passwordHash" TEXT,
       "managerId" TEXT REFERENCES users(id) ON DELETE SET NULL,
       "createdAt" TEXT NOT NULL
     );
@@ -196,6 +202,27 @@ async function ensureSchema(): Promise<void> {
     -- matching rows is a safe no-op on every later startup.
     UPDATE tasks SET status = 'AT_RISK' WHERE status = 'OFF_TRACK';
     UPDATE key_results SET status = 'AT_RISK' WHERE status = 'OFF_TRACK';
+
+    -- Restricted, admin-invited accounts: a person can't sign in until
+    -- passwordHash is set, so it has to allow NULL (existing rows already
+    -- have one and are unaffected). isAdmin gates who can invite new
+    -- accounts; inviteToken/inviteTokenExpiresAt back the /activate flow
+    -- (cleared once a password is set -- see activateUser below).
+    ALTER TABLE users ALTER COLUMN "passwordHash" DROP NOT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "isAdmin" BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "inviteToken" TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS "inviteTokenExpiresAt" TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_invite_token_idx ON users ("inviteToken") WHERE "inviteToken" IS NOT NULL;
+
+    -- Bootstrap admin access: always grant it to the account that asked
+    -- for this feature, and as a fallback (e.g. on a fresh/seeded
+    -- database that never had that exact email) make sure there's always
+    -- at least one admin -- the earliest-created account -- so nobody
+    -- can ever end up with zero people able to invite anyone else.
+    UPDATE users SET "isAdmin" = TRUE WHERE email = 'mmahoney@addaptive.com';
+    UPDATE users SET "isAdmin" = TRUE
+      WHERE id = (SELECT id FROM users ORDER BY "createdAt" ASC LIMIT 1)
+      AND NOT EXISTS (SELECT 1 FROM users WHERE "isAdmin" = TRUE);
   `);
 }
 
@@ -265,11 +292,14 @@ export async function getUserByEmail(email: string): Promise<UserRow | undefined
   return queryOne<UserRow>('SELECT * FROM users WHERE email = $1', [email]);
 }
 
-export async function createUser(data: {
+async function insertUser(data: {
   name: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   managerId?: string | null;
+  isAdmin?: boolean;
+  inviteToken?: string | null;
+  inviteTokenExpiresAt?: string | null;
 }): Promise<UserRow> {
   const row: UserRow = {
     id: newId("user"),
@@ -277,13 +307,92 @@ export async function createUser(data: {
     email: data.email,
     passwordHash: data.passwordHash,
     managerId: data.managerId ?? null,
+    isAdmin: data.isAdmin ?? false,
+    inviteToken: data.inviteToken ?? null,
+    inviteTokenExpiresAt: data.inviteTokenExpiresAt ?? null,
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO users (id, name, email, "passwordHash", "managerId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6)',
-    [row.id, row.name, row.email, row.passwordHash, row.managerId, row.createdAt]
+    `INSERT INTO users
+      (id, name, email, "passwordHash", "managerId", "isAdmin", "inviteToken", "inviteTokenExpiresAt", "createdAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [
+      row.id,
+      row.name,
+      row.email,
+      row.passwordHash,
+      row.managerId,
+      row.isAdmin,
+      row.inviteToken,
+      row.inviteTokenExpiresAt,
+      row.createdAt,
+    ]
   );
   return row;
+}
+
+/** Direct-password account creation -- used by the seed script (and previously /api/signup, now removed). */
+export async function createUser(data: {
+  name: string;
+  email: string;
+  passwordHash: string;
+  managerId?: string | null;
+  isAdmin?: boolean;
+}): Promise<UserRow> {
+  return insertUser(data);
+}
+
+const INVITE_TOKEN_TTL_DAYS = 7;
+
+function inviteTokenExpiry(): string {
+  return new Date(Date.now() + INVITE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Admin-only account creation (see POST /api/admin/invite): no password
+ * yet -- the account sits pending until the invited person opens their
+ * /activate link and sets one. This is how "only allow those I say are
+ * ok" is enforced now that public /signup is gone: an account can only
+ * come into existence via this function, called by an existing admin.
+ */
+export async function createInvitedUser(data: {
+  name: string;
+  email: string;
+  managerId?: string | null;
+  isAdmin?: boolean;
+}): Promise<UserRow> {
+  return insertUser({
+    ...data,
+    passwordHash: null,
+    inviteToken: crypto.randomBytes(32).toString("hex"),
+    inviteTokenExpiresAt: inviteTokenExpiry(),
+  });
+}
+
+export async function getUserByInviteToken(token: string): Promise<UserRow | undefined> {
+  return queryOne<UserRow>('SELECT * FROM users WHERE "inviteToken" = $1', [token]);
+}
+
+/** Sets the password an invited person chose on /activate, and clears the now-used invite token. */
+export async function activateUser(userId: string, passwordHash: string): Promise<void> {
+  await query(
+    'UPDATE users SET "passwordHash" = $1, "inviteToken" = NULL, "inviteTokenExpiresAt" = NULL WHERE id = $2',
+    [passwordHash, userId]
+  );
+}
+
+/** Issues a fresh invite token/expiry for the "Resend invite" action on a still-pending account. */
+export async function regenerateInviteToken(
+  userId: string
+): Promise<{ inviteToken: string; inviteTokenExpiresAt: string }> {
+  const inviteToken = crypto.randomBytes(32).toString("hex");
+  const inviteTokenExpiresAt = inviteTokenExpiry();
+  await query('UPDATE users SET "inviteToken" = $1, "inviteTokenExpiresAt" = $2 WHERE id = $3', [
+    inviteToken,
+    inviteTokenExpiresAt,
+    userId,
+  ]);
+  return { inviteToken, inviteTokenExpiresAt };
 }
 
 // ---------- Objectives ----------

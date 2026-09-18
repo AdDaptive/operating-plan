@@ -5,10 +5,12 @@ import {
   getUserById,
   type KeyResultRow,
   type TaskRow,
+  type UserRow,
 } from "@/lib/db";
 import { STATUS_META } from "@/lib/status";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
+import type { SendResult } from "@/lib/notifiers/email";
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -148,4 +150,62 @@ export async function notifyKeyResultAssigned(
   } catch (err) {
     console.error("[key-result-assigned notification] failed:", err);
   }
+}
+
+/**
+ * Base URL for links in outbound emails (the activation link below, and
+ * anywhere else one gets added later). NEXTAUTH_URL is already required
+ * for NextAuth itself in production (see README), so this reuses it
+ * rather than introducing a second env var; falls back to localhost for
+ * local dev where NEXTAUTH_URL is often left unset.
+ */
+function baseUrl(): string {
+  return process.env.NEXTAUTH_URL || "http://localhost:3000";
+}
+
+/**
+ * Emails an admin-invited person their activation link (see POST
+ * /api/admin/invite and the "Resend invite" action on the Team page).
+ * Email-only, deliberately -- unlike the digest/assignment notifications,
+ * there's no Slack DM attempt here: `sendDigestSlackDM` looks someone up
+ * by email in the workspace, and a brand-new invitee who's never touched
+ * this app yet may not resolve to anything meaningful over Slack. Returns
+ * the send result (rather than swallowing it like the other notifiers
+ * here) because the admin-facing UI shows whether it actually went out.
+ */
+export async function sendAccountInviteEmail(
+  invitee: UserRow,
+  inviterName: string
+): Promise<SendResult> {
+  if (!invitee.inviteToken) {
+    return { sent: false, reason: "no invite token set on this account" };
+  }
+
+  const activateUrl = `${baseUrl()}/activate?token=${invitee.inviteToken}`;
+  const subject = `You've been added to AdDaptive OS`;
+
+  const text =
+    `${inviterName} added you to AdDaptive OS.\n\n` +
+    `Set your password to finish setting up your account:\n${activateUrl}\n\n` +
+    `This link expires in 7 days.`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:24px;">
+      <p style="font-size:15px;color:#101828;margin:0 0 12px;">
+        ${escapeHtml(inviterName)} added you to <strong>AdDaptive OS</strong>.
+      </p>
+      <p style="font-size:13px;color:#667085;margin:0 0 18px;">
+        Set your password to finish setting up your account.
+      </p>
+      <a href="${activateUrl}" style="display:inline-block;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
+        Set your password
+      </a>
+      <p style="font-size:12px;color:#98A2B3;margin:18px 0 0;">This link expires in 7 days.</p>
+    </div>
+  </body>
+</html>`;
+
+  return sendDigestEmail(invitee.email, subject, html, text);
 }

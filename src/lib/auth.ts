@@ -20,7 +20,10 @@ export const authOptions: AuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await getUserByEmail(credentials.email.toLowerCase().trim());
-        if (!user) return null;
+        // No passwordHash means an invite is still pending -- the person
+        // hasn't set a password yet via /activate, so there's nothing to
+        // check credentials against.
+        if (!user || !user.passwordHash) return null;
 
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;

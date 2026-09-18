@@ -6,8 +6,15 @@ task owners and their managers.
 
 ## What's here
 
-- **Accounts** — email + password, one account per person (`src/lib/auth.ts`,
-  `/signup`, `/login`).
+- **Accounts, admin-invited only** — email + password, one account per
+  person. There's no public signup: an admin invites someone from the Team
+  page, they get an emailed link to `/activate` to set their own password,
+  and only then can they sign in at `/login` (`src/lib/auth.ts`,
+  `src/app/api/admin/invite`, `src/app/activate`). The first admin is
+  bootstrapped automatically (see `src/lib/db.ts`'s schema migration) --
+  either the account matching the address that requested this feature, or
+  if that's not present, whichever account was created first (e.g. by the
+  seed script below).
 - **Objectives → Key Results → Tasks** — each task has an owner, a due
   date, a status, and optional Details/Notes; each key result has its own
   owner and due date, and its status is derived automatically (worst
@@ -137,7 +144,10 @@ charge, no upgrade needed) comfortably covers an app like this.
      want to use
 4. Deploy. Then run the seed script once **against that database** from
    your own machine: `DATABASE_URL="<the deployed connection string>" npm
-   run seed`. (Or skip it and just sign up for real accounts at `/signup`.)
+   run seed`. (Or skip it -- since there's no public signup, the very
+   first account needs to come from this seed script, or be inserted by
+   hand; whichever account exists first automatically becomes an admin,
+   who can then invite everyone else from the Team page.)
 5. For the daily digest on a schedule, Vercel's free tier supports
    **Vercel Cron Jobs** (1 included free) — already configured in
    `vercel.json`, hitting `GET /api/digest/run` once a day at 13:00 UTC.
@@ -187,7 +197,8 @@ fine if you need it always-instant.
 4. Deploy. Then run the seed script once **against that database** to
    create its tables and demo data — easiest from your own machine:
    `DATABASE_URL="<the deployed connection string>" npm run seed`.
-   (Or skip seeding and just sign up for real accounts at `/signup`.)
+   (Or skip seeding -- same note as Option A above: the first account
+   created, however it's created, becomes an admin automatically.)
 5. For the daily digest in production, add a Netlify Scheduled Function
    that calls `runDailyDigest()` from `src/lib/digest.ts` (or hits
    `POST /api/digest/run` on a cron), since nothing calls it automatically
@@ -198,7 +209,7 @@ fine if you need it always-instant.
 ```
 src/
   app/
-    login/, signup/              — auth pages
+    login/, activate/            — auth pages (no signup/ -- accounts are admin-invited)
     (app)/layout.tsx              — shared sidebar shell for signed-in pages
     (app)/objectives/             — objectives grid (rollup view)
     (app)/board/[objectiveId]/    — task board for one objective
