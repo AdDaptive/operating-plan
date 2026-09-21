@@ -94,15 +94,17 @@ function createPool(): Pool {
     );
   }
   const isRemote = !raw.includes("localhost") && !raw.includes("127.0.0.1");
-  // Strip any sslmode/ssl query params from the connection string so that pg's
-  // connection-string parser doesn't conflict with the ssl config below. We
-  // control SSL entirely via the programmatic option.
+  // pg-connection-string v2 treats sslmode=require as verify-full, which
+  // rejects Amazon RDS certs (signed by Amazon's own CA, not in Node's bundle).
+  // We strip sslmode from the URL and set ssl explicitly: this still enforces
+  // an encrypted connection but skips certificate chain verification.
   const url = new URL(raw);
   url.searchParams.delete("sslmode");
   url.searchParams.delete("ssl");
   return new Pool({
     connectionString: url.toString(),
-    ssl: isRemote ? { rejectUnauthorized: false } : undefined,
+    // false for localhost, encrypted-but-no-cert-verify for remote (RDS etc.)
+    ssl: isRemote ? { rejectUnauthorized: false } : false,
   });
 }
 
