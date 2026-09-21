@@ -174,10 +174,10 @@ won't double-send anyone.
 
 ### 6. Health check
 
-The app exposes `GET /api/health` → `{ "status": "ok" }`. The Dockerfile
-`HEALTHCHECK` polls this every 30 seconds (30s start-up grace, 3 retries
-before marking unhealthy). Coolify uses this to decide when the new container
-is ready to receive traffic.
+The app exposes `GET /api/health` → `{ "status": "ok" }`. Configure
+Coolify's built-in health check (app → Health Check tab) to use this
+endpoint — Coolify polls it from outside the container and uses it to decide
+when a new deployment is ready to receive traffic.
 
 ### Testing the Docker build locally before pushing
 
