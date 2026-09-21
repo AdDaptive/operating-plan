@@ -12,9 +12,8 @@ task owners and their managers.
   and only then can they sign in at `/login` (`src/lib/auth.ts`,
   `src/app/api/admin/invite`, `src/app/activate`). The first admin is
   bootstrapped automatically (see `src/lib/db.ts`'s schema migration) --
-  either the account matching the address that requested this feature, or
-  if that's not present, whichever account was created first (e.g. by the
-  seed script below).
+  whichever account was created first (e.g. by the seed script below)
+  automatically becomes an admin so they can invite everyone else.
 - **Objectives → Key Results → Tasks** — each task has an owner, a due
   date, a status, and optional Details/Notes; each key result has its own
   owner and due date, and its status is derived automatically (worst
@@ -22,16 +21,17 @@ task owners and their managers.
   average of its key results' status-derived progress (`src/lib/rollup.ts`,
   `src/lib/status.ts`).
 - **Color-coded status + due dates** — Not Started / On Track / At Risk /
-  Off Track / Done, with overdue due dates shown in red
-  (`src/lib/status.ts`).
+  Done, with overdue due dates shown in red (`src/lib/status.ts`).
 - **Daily status digest (email + Slack)** — once a day, everyone who has
   something worth knowing about gets a message: their own overdue /
-  due-today / due-in-the-next-3-days / at-risk-or-off-track tasks, and — if
-  they manage anyone — a short rollup of their direct reports' overdue or
-  flagged items (`src/lib/digest.ts`). It sends over whichever channel(s)
-  you've configured:
-  - **Email**, via [Resend](https://resend.com) — set `RESEND_API_KEY`
-    (and optionally `DIGEST_FROM_EMAIL`) — see `src/lib/notifiers/email.ts`.
+  due-today / due-in-the-next-3-days / at-risk tasks, and — if they manage
+  anyone — a short rollup of their direct reports' overdue or flagged items
+  (`src/lib/digest.ts`). It sends over whichever channel(s) you've
+  configured:
+  - **Email**, via any SMTP server — set `SMTP_HOST`, `SMTP_USER`, and
+    `SMTP_PASS` (and optionally `SMTP_PORT`, `SMTP_SECURE`, `DIGEST_FROM_EMAIL`)
+    — see `src/lib/notifiers/email.ts`. Works with Amazon SES, SendGrid,
+    Postmark, Mailgun, or any SMTP relay.
   - **Slack**, via a Slack app's bot token — set `SLACK_BOT_TOKEN` — see
     `src/lib/notifiers/slack.ts` and "Setting up Slack" below.
 
@@ -40,8 +40,8 @@ task owners and their managers.
   without actually emailing/Slacking anyone. Trigger it two ways:
   - The **"Send daily digest now"** button on any task board (calls
     `POST /api/digest/run`).
-  - `npm run digest`, or the scheduled `GET /api/digest/run` (see
-    `vercel.json`), meant to run once a day.
+  - The scheduled `GET /api/digest/run` hit by the Coolify cron task
+    at 13:00 UTC — see "Deploying" below.
 
   Sends are logged per person/per channel/per day in the `digest_logs`
   table so triggering it more than once in a day (the button, then the
@@ -66,16 +66,27 @@ That's it — no channel or webhook to configure. Each digest is a direct
 message from the app's bot to that person, found by matching the email
 address already in your `users` table.
 
-### Setting up email (Resend)
+### Setting up email (SMTP)
 
-1. Sign up at <https://resend.com> (free tier is fine to start).
-2. Copy an API key from the dashboard into `RESEND_API_KEY`.
-3. By default, sends go from Resend's shared `onboarding@resend.dev`
-   address, which **only delivers to the email you signed up to Resend
-   with** — fine for testing solo, not for emailing a whole team. To email
-   everyone, verify your own sending domain in Resend (Domains → Add
-   Domain, then a few DNS records), then set `DIGEST_FROM_EMAIL` to an
-   address on that domain, e.g. `"AdDaptive OS <status@yourcompany.com>"`.
+The digest emailer works with any SMTP provider. Set these environment variables:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `SMTP_HOST` | Yes | e.g. `email-smtp.us-east-1.amazonaws.com` |
+| `SMTP_USER` | Yes | SMTP username |
+| `SMTP_PASS` | Yes | SMTP password |
+| `SMTP_PORT` | No | Defaults to `587` (STARTTLS). Use `465` for SSL. |
+| `SMTP_SECURE` | No | Set to `"true"` when using port 465 (SSL). |
+| `DIGEST_FROM_EMAIL` | No | e.g. `"AdDaptive OS <status@yourcompany.com>"`. Defaults to `AdDaptive OS <$SMTP_USER>`. Must be a verified sender on your provider. |
+
+**Amazon SES:**
+1. In the SES console, verify your sending domain (or at minimum the From address).
+2. Go to **SMTP Settings** → **Create SMTP credentials** — this gives you an SMTP
+   username and password (these are separate from your IAM access keys).
+3. Use `email-smtp.<your-region>.amazonaws.com` as `SMTP_HOST`, port `587`.
+
+**Other providers** (SendGrid, Postmark, Mailgun, etc.) work the same way —
+just use the SMTP host and credentials from their dashboards.
 
 ## Database: Postgres
 
@@ -85,16 +96,9 @@ to the database directly. It connects to Postgres via `DATABASE_URL` and
 creates its own tables on first run (`CREATE TABLE IF NOT EXISTS`), so there
 are no separate migration files to run.
 
-This works with **any** Postgres: a local Postgres for development, or a
-hosted one for deploying — Netlify Database (Netlify's built-in managed
-Postgres, zero-config), Neon, Supabase, Railway, RDS, whatever you already
-use. Just point `DATABASE_URL` at it.
-
-(Earlier version note: this briefly ran on Node's built-in `node:sqlite`
-with a local file, because the sandbox it was first built in blocked
-network access to `binaries.prisma.sh`. That doesn't deploy anywhere with
-serverless functions — no persistent disk between invocations — so it's
-been swapped for Postgres, which does.)
+This works with **any** Postgres — local for development, or hosted (RDS,
+Neon, Supabase, Railway, etc.) for production. Just point `DATABASE_URL`
+at it.
 
 ## Running it locally
 
@@ -102,7 +106,10 @@ been swapped for Postgres, which does.)
 # 1. Have a Postgres reachable, e.g. locally:
 createdb addaptive_os
 
-# 2. Set DATABASE_URL in .env (see .env for the local default)
+# 2. Create a .env file:
+echo "DATABASE_URL=postgres://localhost/addaptive_os" > .env
+echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)" >> .env
+echo "NEXTAUTH_URL=http://localhost:3000" >> .env
 
 npm install
 npm run seed      # creates tables + a demo workspace
@@ -116,93 +123,94 @@ the digest reach both an owner and their manager).
 
 `npm run build && npm run start` runs it in production mode.
 
-## Deploying — this app isn't tied to Netlify
+## Deploying to Coolify (with AWS RDS)
 
-Nothing in the code depends on Netlify specifically — it's a plain Next.js
-app that talks to Postgres over `DATABASE_URL`. `netlify.toml` is just a
-config file; a host that doesn't use it simply ignores it. So if you're out
-of Netlify credits and don't want to upgrade, any of the options below work
-with zero code changes.
+This app ships with a `Dockerfile` using Next.js standalone output — build
+it once, run the image anywhere.
 
-### Option A: Vercel (recommended free option)
+### 1. Create the application in Coolify
 
-Vercel is built by the team that makes Next.js, so it needs the least
-configuration of any host, and its free "Hobby" tier (no credit card
-charge, no upgrade needed) comfortably covers an app like this.
+New Resource → Application → GitHub → select this repo and branch.
+Coolify auto-detects the `Dockerfile`. Set port **3000**.
 
-1. Push this code to a GitHub (or GitLab/Bitbucket) repo if it isn't
-   already there.
-2. At vercel.com, "Add New… → Project" and import that repo. It
-   auto-detects Next.js — you don't need to change any build settings.
-3. Before the first deploy (or right after, then redeploy), add these
-   under Project Settings → Environment Variables:
-   - `DATABASE_URL` — see the free Postgres options below
-   - `NEXTAUTH_SECRET` — a long random string (`openssl rand -base64 32`)
-   - `NEXTAUTH_URL` — your deployed URL, e.g. `https://your-app.vercel.app`
-   - `RESEND_API_KEY` and/or `SLACK_BOT_TOKEN` — for the daily digest (see
-     "Setting up Slack" / "Setting up email" above); skip either you don't
-     want to use
-4. Deploy. Then run the seed script once **against that database** from
-   your own machine: `DATABASE_URL="<the deployed connection string>" npm
-   run seed`. (Or skip it -- since there's no public signup, the very
-   first account needs to come from this seed script, or be inserted by
-   hand; whichever account exists first automatically becomes an admin,
-   who can then invite everyone else from the Team page.)
-5. For the daily digest on a schedule, Vercel's free tier supports
-   **Vercel Cron Jobs** (1 included free) — already configured in
-   `vercel.json`, hitting `GET /api/digest/run` once a day at 13:00 UTC.
-   Just add a `CRON_SECRET` environment variable (any long random string)
-   — the route checks for it so random visitors can't trigger sends, and
-   Vercel automatically sends it as a bearer token to your cron jobs.
+### 2. Environment variables
 
-Free Postgres to pair with it (either works fine with `db.ts` as-is, since
-it turns on SSL automatically for any non-localhost connection string):
+Set these in the Coolify app's Environment Variables tab:
 
-- **Neon** — serverless Postgres, generous free tier, no credit card
-  required. Copy its connection string straight into `DATABASE_URL`.
-- **Supabase** — also has a free Postgres tier, same idea.
+| Variable | Required | Notes |
+|---|---|---|
+| `DATABASE_URL` | Yes | `postgresql://user:pass@rds-host:5432/dbname?sslmode=require` |
+| `NEXTAUTH_SECRET` | Yes | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Yes | Your domain, e.g. `https://os.yourcompany.com` |
+| `CRON_SECRET` | Yes | `openssl rand -base64 32` — secures the digest endpoint |
+| `SMTP_HOST` | Optional | For email digests, e.g. `email-smtp.us-east-1.amazonaws.com` |
+| `SMTP_USER` | Optional | SMTP username |
+| `SMTP_PASS` | Optional | SMTP password |
+| `SMTP_PORT` | Optional | Defaults to `587` |
+| `SMTP_SECURE` | Optional | `"true"` for SSL/port 465 |
+| `DIGEST_FROM_EMAIL` | Optional | e.g. `"AdDaptive OS <status@yourcompany.com>"` |
+| `SLACK_BOT_TOKEN` | Optional | For Slack DM digests |
 
-### Option B: Render
+**RDS note:** RDS requires SSL. The app enables SSL automatically for any
+non-localhost connection string. If you hit certificate validation errors,
+append `?sslmode=no-verify` to the connection string.
 
-Render's free tier can run this too (a free Web Service + free Postgres
-for 90 days, or pair it with Neon for a Postgres that doesn't expire). The
-free web service spins down after inactivity, so the first request after a
-quiet period is slow (~30s cold start) — fine for internal/demo use, less
-fine if you need it always-instant.
+### 3. Domain and SSL
 
-1. New → Web Service, connect the repo, build command `npm run build`,
-   start command `npm run start`.
-2. Add the same environment variables as above (`DATABASE_URL`,
-   `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, and `RESEND_API_KEY`/`SLACK_BOT_TOKEN`
-   for the digest).
-3. Seed and schedule the digest the same way as Option A (Render has cron
-   jobs too, as a separate free-tier service type).
+Assign your domain under the app's Domains tab. Coolify provisions a
+Let's Encrypt certificate automatically via Traefik. Make sure `NEXTAUTH_URL`
+matches the domain exactly.
 
-### Deploying to Netlify (if you come back to it later)
+### 4. Database initialisation
 
-1. Push this to a GitHub/GitLab/Bitbucket repo and create a new Netlify
-   site from it (or use the Netlify CLI: `netlify deploy`). Netlify
-   auto-detects Next.js and uses the `@netlify/plugin-nextjs` runtime
-   (already declared in `netlify.toml`) — App Router, API routes, and SSR
-   all work as Netlify Functions/Edge Functions.
-2. Get a Postgres database. Easiest: in the Netlify dashboard, add
-   **Netlify Database** to the site (Postgres, provisioned for you, sets
-   `DATABASE_URL` automatically). Or bring your own — Neon, Supabase,
-   Railway — and set `DATABASE_URL` yourself.
-3. In Site configuration → Environment variables, set:
-   - `DATABASE_URL` (skip if Netlify Database set it for you)
-   - `NEXTAUTH_SECRET` — a long random string (`openssl rand -base64 32`)
-   - `NEXTAUTH_URL` — your site's URL, e.g. `https://your-site.netlify.app`
-   - `RESEND_API_KEY` and/or `SLACK_BOT_TOKEN` — for the daily digest
-4. Deploy. Then run the seed script once **against that database** to
-   create its tables and demo data — easiest from your own machine:
-   `DATABASE_URL="<the deployed connection string>" npm run seed`.
-   (Or skip seeding -- same note as Option A above: the first account
-   created, however it's created, becomes an admin automatically.)
-5. For the daily digest in production, add a Netlify Scheduled Function
-   that calls `runDailyDigest()` from `src/lib/digest.ts` (or hits
-   `POST /api/digest/run` on a cron), since nothing calls it automatically
-   on Netlify yet — see "Not yet built" below.
+The schema (all tables) is created automatically on the first request — no
+migration step needed.
+
+**To bootstrap the first admin user**, run the seed script from your local
+machine against the RDS database:
+
+```bash
+DATABASE_URL="postgresql://user:pass@rds-host:5432/dbname?sslmode=require" npm run seed
+```
+
+Login with **mmahoney@addaptive.com** / **password123**, then change the
+password and delete demo users/data you don't want. Whichever account exists
+first in the database is automatically granted admin, so you could also
+insert a user directly via psql if you'd prefer no demo data.
+
+### 5. Cron job (daily digest)
+
+In Coolify: app → **Scheduled Tasks** tab. Add:
+
+- **Schedule:** `0 13 * * *` (1 PM UTC daily)
+- **Command:** `sh -c 'wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/digest/run'`
+
+This calls the same endpoint the button on the task board calls, just on a
+schedule. Sends are idempotent — triggering it more than once in a day
+won't double-send anyone.
+
+### 6. Health check
+
+The app exposes `GET /api/health` → `{ "status": "ok" }`. Configure
+Coolify's built-in health check (app → Health Check tab) to use this
+endpoint — Coolify polls it from outside the container and uses it to decide
+when a new deployment is ready to receive traffic.
+
+### Testing the Docker build locally before pushing
+
+```bash
+docker build -t addaptive-op .
+
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e NEXTAUTH_SECRET="any-string" \
+  -e NEXTAUTH_URL="http://localhost:3000" \
+  -e CRON_SECRET="test" \
+  addaptive-op
+```
+
+Then open `http://localhost:3000`. If it loads, the image is correct and
+Coolify will build it the same way.
 
 ## Project layout
 
@@ -210,13 +218,18 @@ fine if you need it always-instant.
 src/
   app/
     login/, activate/            — auth pages (no signup/ -- accounts are admin-invited)
+    forgot-password/, reset-password/
     (app)/layout.tsx              — shared sidebar shell for signed-in pages
     (app)/objectives/             — objectives grid (rollup view)
     (app)/board/[objectiveId]/    — task board for one objective
     (app)/key-results/            — every key result across every objective, with its tasks
     (app)/team/                   — directory + workload per person
     (app)/reports/                — org-wide status + progress overview
-    api/                          — REST-ish routes the client calls
+    api/
+      health/                     — GET /api/health → { status: "ok" } (Docker healthcheck)
+      digest/run/                 — GET (cron) + POST (manual) digest trigger
+      admin/invite/               — admin-only user invitation
+      auth/, objectives/, key-results/, tasks/, users/
   components/                     — modals, task rows, status pill/select, etc.
   lib/
     db.ts                         — the whole data layer (Postgres via `pg`)
@@ -228,22 +241,14 @@ src/
 scripts/
   seed.ts                         — demo data (run against any DATABASE_URL)
   send-digest.ts                  — CLI entry point for `npm run digest`
-netlify.toml                      — Netlify build + Next.js runtime config
-vercel.json                       — Vercel Cron Job config (daily digest sweep)
+Dockerfile                        — multi-stage build, standalone Next.js output
 ```
 
 ## What's intentionally left as an MVP
 
-- No password reset flow, no team/org management UI beyond the read-only
-  Team page.
-- No "edit objective" screen (only "New objective"), so an objective
-  created before a schema change may need re-creating to pick up new
-  fields.
-- A key result's status isn't set manually -- it's derived from its own
-  tasks (`computeKeyResultStatus` in `src/lib/rollup.ts`): worst status
-  wins, in the order Off Track > At Risk > Not Started > On Track > Done,
-  and a key result with no tasks yet defaults to Not Started. That status
-  is then mapped to a percentage via `STATUS_PROGRESS` in
-  `src/lib/status.ts` for the progress bars/rollup. Both the severity
-  order and the percentage mapping are deliberate, easily-adjustable
-  conventions rather than fixed rules.
+- Key result status is derived from its tasks (`computeKeyResultStatus` in
+  `src/lib/rollup.ts`), not set manually: worst status wins, in the order
+  At Risk > Not Started > On Track > Done, and a key result with no tasks
+  defaults to Not Started. That status is mapped to a percentage via
+  `STATUS_PROGRESS` in `src/lib/status.ts` for progress bars/rollup. Both
+  are deliberate, adjustable conventions.

@@ -87,16 +87,24 @@ const globalForDb = globalThis as unknown as {
 };
 
 function createPool(): Pool {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) {
     throw new Error(
       "DATABASE_URL is not set. Point it at a Postgres database (Netlify Database, Neon, Supabase, Railway, or a local Postgres) -- see the README."
     );
   }
-  const useSsl = !connectionString.includes("localhost") && !connectionString.includes("127.0.0.1");
+  const isRemote = !raw.includes("localhost") && !raw.includes("127.0.0.1");
+  // pg-connection-string v2 treats sslmode=require as verify-full, which
+  // rejects Amazon RDS certs (signed by Amazon's own CA, not in Node's bundle).
+  // We strip sslmode from the URL and set ssl explicitly: this still enforces
+  // an encrypted connection but skips certificate chain verification.
+  const url = new URL(raw);
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("ssl");
   return new Pool({
-    connectionString,
-    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+    connectionString: url.toString(),
+    // false for localhost, encrypted-but-no-cert-verify for remote (RDS etc.)
+    ssl: isRemote ? { rejectUnauthorized: false } : false,
   });
 }
 
