@@ -87,16 +87,22 @@ const globalForDb = globalThis as unknown as {
 };
 
 function createPool(): Pool {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) {
     throw new Error(
       "DATABASE_URL is not set. Point it at a Postgres database (Netlify Database, Neon, Supabase, Railway, or a local Postgres) -- see the README."
     );
   }
-  const useSsl = !connectionString.includes("localhost") && !connectionString.includes("127.0.0.1");
+  const isRemote = !raw.includes("localhost") && !raw.includes("127.0.0.1");
+  // Strip any sslmode/ssl query params from the connection string so that pg's
+  // connection-string parser doesn't conflict with the ssl config below. We
+  // control SSL entirely via the programmatic option.
+  const url = new URL(raw);
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("ssl");
   return new Pool({
-    connectionString,
-    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+    connectionString: url.toString(),
+    ssl: isRemote ? { rejectUnauthorized: false } : undefined,
   });
 }
 
