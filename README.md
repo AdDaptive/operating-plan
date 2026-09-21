@@ -28,8 +28,10 @@ task owners and their managers.
   anyone — a short rollup of their direct reports' overdue or flagged items
   (`src/lib/digest.ts`). It sends over whichever channel(s) you've
   configured:
-  - **Email**, via [Resend](https://resend.com) — set `RESEND_API_KEY`
-    (and optionally `DIGEST_FROM_EMAIL`) — see `src/lib/notifiers/email.ts`.
+  - **Email**, via any SMTP server — set `SMTP_HOST`, `SMTP_USER`, and
+    `SMTP_PASS` (and optionally `SMTP_PORT`, `SMTP_SECURE`, `DIGEST_FROM_EMAIL`)
+    — see `src/lib/notifiers/email.ts`. Works with Amazon SES, SendGrid,
+    Postmark, Mailgun, or any SMTP relay.
   - **Slack**, via a Slack app's bot token — set `SLACK_BOT_TOKEN` — see
     `src/lib/notifiers/slack.ts` and "Setting up Slack" below.
 
@@ -64,16 +66,27 @@ That's it — no channel or webhook to configure. Each digest is a direct
 message from the app's bot to that person, found by matching the email
 address already in your `users` table.
 
-### Setting up email (Resend)
+### Setting up email (SMTP)
 
-1. Sign up at <https://resend.com> (free tier is fine to start).
-2. Copy an API key from the dashboard into `RESEND_API_KEY`.
-3. By default, sends go from Resend's shared `onboarding@resend.dev`
-   address, which **only delivers to the email you signed up to Resend
-   with** — fine for testing solo, not for emailing a whole team. To email
-   everyone, verify your own sending domain in Resend (Domains → Add
-   Domain, then a few DNS records), then set `DIGEST_FROM_EMAIL` to an
-   address on that domain, e.g. `"AdDaptive OS <status@yourcompany.com>"`.
+The digest emailer works with any SMTP provider. Set these environment variables:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `SMTP_HOST` | Yes | e.g. `email-smtp.us-east-1.amazonaws.com` |
+| `SMTP_USER` | Yes | SMTP username |
+| `SMTP_PASS` | Yes | SMTP password |
+| `SMTP_PORT` | No | Defaults to `587` (STARTTLS). Use `465` for SSL. |
+| `SMTP_SECURE` | No | Set to `"true"` when using port 465 (SSL). |
+| `DIGEST_FROM_EMAIL` | No | e.g. `"AdDaptive OS <status@yourcompany.com>"`. Defaults to `AdDaptive OS <$SMTP_USER>`. Must be a verified sender on your provider. |
+
+**Amazon SES:**
+1. In the SES console, verify your sending domain (or at minimum the From address).
+2. Go to **SMTP Settings** → **Create SMTP credentials** — this gives you an SMTP
+   username and password (these are separate from your IAM access keys).
+3. Use `email-smtp.<your-region>.amazonaws.com` as `SMTP_HOST`, port `587`.
+
+**Other providers** (SendGrid, Postmark, Mailgun, etc.) work the same way —
+just use the SMTP host and credentials from their dashboards.
 
 ## Database: Postgres
 
@@ -130,8 +143,12 @@ Set these in the Coolify app's Environment Variables tab:
 | `NEXTAUTH_SECRET` | Yes | `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Yes | Your domain, e.g. `https://os.yourcompany.com` |
 | `CRON_SECRET` | Yes | `openssl rand -base64 32` — secures the digest endpoint |
-| `RESEND_API_KEY` | Optional | For email digests |
-| `DIGEST_FROM_EMAIL` | Optional | Custom sender, e.g. `"AdDaptive OS <status@yourcompany.com>"` |
+| `SMTP_HOST` | Optional | For email digests, e.g. `email-smtp.us-east-1.amazonaws.com` |
+| `SMTP_USER` | Optional | SMTP username |
+| `SMTP_PASS` | Optional | SMTP password |
+| `SMTP_PORT` | Optional | Defaults to `587` |
+| `SMTP_SECURE` | Optional | `"true"` for SSL/port 465 |
+| `DIGEST_FROM_EMAIL` | Optional | e.g. `"AdDaptive OS <status@yourcompany.com>"` |
 | `SLACK_BOT_TOKEN` | Optional | For Slack DM digests |
 
 **RDS note:** RDS requires SSL. The app enables SSL automatically for any
