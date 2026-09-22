@@ -9,6 +9,7 @@ import {
 } from "@/lib/activityLabel";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusPill from "@/components/StatusPill";
+import PersonFilter from "@/components/PersonFilter";
 
 const ACTIVITY_LIMIT = 200;
 
@@ -20,22 +21,42 @@ const ACTIVITY_LIMIT = 200;
  * owner, priority, and key-result reassignment are deliberately not
  * tracked here, matching exactly what was asked for.
  */
-export default async function ActivityPage() {
-  const [activity, tasks, users] = await Promise.all([
+export default async function ActivityPage({
+  searchParams,
+}: {
+  searchParams?: { person?: string };
+}) {
+  const [activity, tasks, allUsers] = await Promise.all([
     listRecentTaskActivity(ACTIVITY_LIMIT),
     listTasksWithActivityStatus(),
     listUsers(),
   ]);
-  const userById = new Map(users.map((u) => [u.id, u]));
+  const users = allUsers.map((u) => ({ id: u.id, name: u.name }));
+  const userById = new Map(allUsers.map((u) => [u.id, u]));
+
+  const personFilter = searchParams?.person ?? "";
 
   // Most-stale-first: never-changed tasks lead, then the longest-untouched
   // yellow tasks, then green tasks -- the point of this list is to surface
-  // what's gone stale, not to read chronologically.
-  const tasksByFreshness = [...tasks].sort((a, b) => {
+  // what's gone stale, not to read chronologically. The person filter (when
+  // set) narrows this to tasks that person owns or is a delegated sub-owner
+  // of, same "counts for both" convention as Home's myTasks filter.
+  const tasksFiltered = personFilter
+    ? tasks.filter((t) => t.ownerId === personFilter || t.subOwnerId === personFilter)
+    : tasks;
+  const tasksByFreshness = [...tasksFiltered].sort((a, b) => {
     const aTime = a.lastChangedAt ? new Date(a.lastChangedAt).getTime() : -Infinity;
     const bTime = b.lastChangedAt ? new Date(b.lastChangedAt).getTime() : -Infinity;
     return aTime - bTime;
   });
+
+  // The recent-changes feed has no task-owner info attached to each row
+  // (see TaskActivityFull) -- the person it actually carries is whoever
+  // MADE the change, so the same filter narrows this list to changes
+  // attributed to that person instead.
+  const activityFiltered = personFilter
+    ? activity.filter((a) => a.changedById === personFilter)
+    : activity;
 
   return (
     <>
@@ -43,11 +64,12 @@ export default async function ActivityPage() {
         <div>
           <h1 className="font-display text-[21px] font-bold text-ink">Activity</h1>
           <p className="mt-1 text-[13px] text-ink-secondary">
-            {activity.length} change{activity.length === 1 ? "" : "s"} to status, due dates,
-            sub-owners, details, and notes
-            {activity.length === ACTIVITY_LIMIT ? ` (most recent ${ACTIVITY_LIMIT})` : ""}
+            {activityFiltered.length} change{activityFiltered.length === 1 ? "" : "s"} to status, due
+            dates, sub-owners, details, and notes
+            {!personFilter && activity.length === ACTIVITY_LIMIT ? ` (most recent ${ACTIVITY_LIMIT})` : ""}
           </p>
         </div>
+        <PersonFilter users={users} current={personFilter} basePath="/activity" />
       </div>
 
       <div className="flex-grow overflow-y-auto p-4 md:p-7">
@@ -68,7 +90,7 @@ export default async function ActivityPage() {
         <div className="mb-7 overflow-hidden rounded-card border border-line bg-white">
           {tasksByFreshness.length === 0 ? (
             <div className="px-5 py-10 text-center text-[13px] text-ink-tertiary">
-              No tasks yet.
+              {personFilter ? "No tasks for this person." : "No tasks yet."}
             </div>
           ) : (
             <>
@@ -143,10 +165,11 @@ export default async function ActivityPage() {
 
         <h2 className="mb-3 text-[15px] font-bold text-ink">Recent changes</h2>
         <div className="overflow-hidden rounded-card border border-line bg-white">
-          {activity.length === 0 ? (
+          {activityFiltered.length === 0 ? (
             <div className="px-5 py-10 text-center text-[13px] text-ink-tertiary">
-              No changes recorded yet. Editing a task&rsquo;s status, due date, sub-owner,
-              details, or notes will show up here.
+              {personFilter
+                ? "No changes made by this person yet."
+                : "No changes recorded yet. Editing a task\u2019s status, due date, sub-owner, details, or notes will show up here."}
             </div>
           ) : (
             <>
@@ -157,7 +180,7 @@ export default async function ActivityPage() {
                 <span>BY</span>
                 <span>WHEN</span>
               </div>
-              {activity.map((a) => (
+              {activityFiltered.map((a) => (
                 <Link
                   key={a.id}
                   href={a.objectiveId ? `/board/${a.objectiveId}` : "/activity"}

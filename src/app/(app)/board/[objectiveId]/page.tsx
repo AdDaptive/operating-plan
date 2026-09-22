@@ -13,15 +13,35 @@ import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
 import ObjectiveModal from "@/components/ObjectiveModal";
 import DeleteObjectiveButton from "@/components/DeleteObjectiveButton";
+import PersonFilter from "@/components/PersonFilter";
 
-export default async function BoardPage({ params }: { params: { objectiveId: string } }) {
+export default async function BoardPage({
+  params,
+  searchParams,
+}: {
+  params: { objectiveId: string };
+  searchParams?: { person?: string };
+}) {
   const objective = await getObjectiveFull(params.objectiveId);
   if (!objective) notFound();
 
   const users = (await listUsers()).map((u) => ({ id: u.id, name: u.name }));
   const overallProgress = objectiveProgress(objective.keyResults);
+  // Every key result stays offered in the reassign-to dropdowns below even
+  // when a person filter is active -- it only hides key-result CARDS that
+  // have nothing left to show, it never narrows what a task can be moved to.
   const allKeyResults = objective.keyResults.map((kr) => ({ id: kr.id, title: kr.title }));
   const totalTaskCount = objective.keyResults.reduce((sum, kr) => sum + kr.tasks.length, 0);
+
+  const personFilter = searchParams?.person ?? "";
+  const keyResultsToShow = personFilter
+    ? objective.keyResults
+        .map((kr) => ({
+          ...kr,
+          tasks: kr.tasks.filter((t) => t.ownerId === personFilter || t.subOwnerId === personFilter),
+        }))
+        .filter((kr) => kr.tasks.length > 0)
+    : objective.keyResults;
 
   return (
     <>
@@ -53,7 +73,8 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
             redirectTo="/objectives"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <PersonFilter users={users} current={personFilter} basePath={`/board/${objective.id}`} />
           {allKeyResults.length > 0 && (
             <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} users={users} />
           )}
@@ -76,7 +97,16 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
             </div>
           )}
 
-          {objective.keyResults.map((kr) => {
+          {objective.keyResults.length > 0 && keyResultsToShow.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white py-16 text-center">
+              <p className="font-display text-[16px] font-bold text-ink">No tasks for this person</p>
+              <p className="max-w-sm text-[13px] text-ink-secondary">
+                They aren&rsquo;t the owner or sub-owner of any task under this objective yet.
+              </p>
+            </div>
+          )}
+
+          {keyResultsToShow.map((kr) => {
             const progress = keyResultProgress(kr);
             const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
             return (

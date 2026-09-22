@@ -10,6 +10,7 @@ import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
+import PersonFilter from "@/components/PersonFilter";
 
 /**
  * Every key result across every objective, each with the tasks that fall
@@ -19,16 +20,44 @@ import KeyResultModal from "@/components/KeyResultModal";
  * (which only showed the signed-in user's own tasks) with an org-wide view
  * where every key result's owner is visible too.
  */
-export default async function KeyResultsPage() {
+export default async function KeyResultsPage({
+  searchParams,
+}: {
+  searchParams?: { person?: string };
+}) {
   const [objectives, allUsers] = await Promise.all([getObjectivesFull(), listUsers()]);
   const users = allUsers.map((u) => ({ id: u.id, name: u.name }));
 
-  const objectivesWithKeyResults = objectives.filter((o) => o.keyResults.length > 0);
-  const totalKeyResults = objectives.reduce((sum, o) => sum + o.keyResults.length, 0);
+  // Filtering down to one person's tasks (owner or delegated sub-owner,
+  // same "counts for both" convention as Home's myTasks filter) happens
+  // here, before any of the grouping/counting below -- a key result with
+  // no tasks left for the selected person is dropped entirely, and so is
+  // an objective left with no key results, so the filtered page only
+  // shows what that person actually has something in.
+  const personFilter = searchParams?.person ?? "";
+  const objectivesFiltered = personFilter
+    ? objectives
+        .map((o) => ({
+          ...o,
+          keyResults: o.keyResults
+            .map((kr) => ({
+              ...kr,
+              tasks: kr.tasks.filter((t) => t.ownerId === personFilter || t.subOwnerId === personFilter),
+            }))
+            .filter((kr) => kr.tasks.length > 0),
+        }))
+        .filter((o) => o.keyResults.length > 0)
+    : objectives;
+
+  const objectivesWithKeyResults = objectivesFiltered.filter((o) => o.keyResults.length > 0);
+  const totalKeyResults = objectivesFiltered.reduce((sum, o) => sum + o.keyResults.length, 0);
   // Flattened across every objective (unlike the board page's allKeyResults,
   // which is scoped to just one) -- the header's "New Task" button lets the
   // person pick which objective/key-result via the modal's own dropdown.
   const allKeyResultsFlat = objectives.flatMap((o) => o.keyResults.map((kr) => ({ id: kr.id, title: kr.title })));
+  const allKeyResultsByObjectiveId = new Map(
+    objectives.map((o) => [o.id, o.keyResults.map((kr) => ({ id: kr.id, title: kr.title }))])
+  );
 
   return (
     <>
@@ -40,21 +69,28 @@ export default async function KeyResultsPage() {
             {objectivesWithKeyResults.length} objective{objectivesWithKeyResults.length === 1 ? "" : "s"}
           </p>
         </div>
-        {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} />}
+        <div className="flex items-center gap-2">
+          <PersonFilter users={users} current={personFilter} basePath="/key-results" />
+          {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} />}
+        </div>
       </div>
 
       <div className="flex-grow overflow-y-auto p-4 md:p-7">
         {objectivesWithKeyResults.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white py-20 text-center">
-            <p className="font-display text-[16px] font-bold text-ink">No key results yet</p>
+            <p className="font-display text-[16px] font-bold text-ink">
+              {personFilter ? "No tasks for this person" : "No key results yet"}
+            </p>
             <p className="max-w-sm text-[13px] text-ink-secondary">
-              Add a key result to an objective from its board page and it&rsquo;ll show up here.
+              {personFilter
+                ? "They aren't the owner or sub-owner of any task yet."
+                : "Add a key result to an objective from its board page and it\u2019ll show up here."}
             </p>
           </div>
         ) : (
           <div className="flex flex-col gap-8">
             {objectivesWithKeyResults.map((objective) => {
-              const allKeyResults = objective.keyResults.map((kr) => ({ id: kr.id, title: kr.title }));
+              const allKeyResults = allKeyResultsByObjectiveId.get(objective.id) ?? [];
 
               return (
                 <div key={objective.id} className="flex flex-col gap-3">
