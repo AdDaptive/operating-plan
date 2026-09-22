@@ -11,6 +11,7 @@ import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
 import PersonFilter from "@/components/PersonFilter";
+import KeyResultAccordion from "@/components/KeyResultAccordion";
 
 /**
  * Every key result across every objective, each with the tasks that fall
@@ -110,63 +111,67 @@ export default async function KeyResultsPage({
                       const progress = keyResultProgress(kr);
                       const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
                       return (
-                        <div key={kr.id} className="overflow-hidden rounded-card border border-line bg-white">
-                          <div className="flex flex-wrap items-center justify-between gap-y-2 border-b border-[#EEF0F3] px-5 py-4">
-                            <div className="flex items-start gap-2">
-                              <div>
-                                <div className="mb-1 text-[10px] font-bold tracking-wide text-ink-tertiary">
-                                  KEY RESULT
-                                </div>
-                                <div className="text-[15px] font-bold text-ink">{kr.title}</div>
-                                <div className="mt-1 flex items-center gap-2.5">
-                                  {kr.owner && (
-                                    <div className="flex items-center gap-1.5">
-                                      <div
-                                        className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
-                                        style={{ background: colorForName(kr.owner.name) }}
-                                      >
-                                        {initials(kr.owner.name)}
+                        <KeyResultAccordion
+                          key={kr.id}
+                          taskCount={kr.tasks.length}
+                          header={
+                            <>
+                              <div className="flex items-start gap-2">
+                                <div>
+                                  <div className="mb-1 text-[10px] font-bold tracking-wide text-ink-tertiary">
+                                    KEY RESULT
+                                  </div>
+                                  <div className="text-[15px] font-bold text-ink">{kr.title}</div>
+                                  <div className="mt-1 flex items-center gap-2.5">
+                                    {kr.owner && (
+                                      <div className="flex items-center gap-1.5">
+                                        <div
+                                          className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                                          style={{ background: colorForName(kr.owner.name) }}
+                                        >
+                                          {initials(kr.owner.name)}
+                                        </div>
+                                        <span className="text-[12px] text-ink-secondary">{kr.owner.name}</span>
                                       </div>
-                                      <span className="text-[12px] text-ink-secondary">{kr.owner.name}</span>
-                                    </div>
-                                  )}
-                                  {kr.dueDate && (
-                                    <span
-                                      className="text-[12px]"
-                                      style={{ color: krOverdue ? "#B42318" : "var(--ink-secondary, #475467)" }}
-                                    >
-                                      Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
-                                      {krOverdue ? " · overdue" : ""}
-                                    </span>
-                                  )}
+                                    )}
+                                    {kr.dueDate && (
+                                      <span
+                                        className="text-[12px]"
+                                        style={{ color: krOverdue ? "#B42318" : "var(--ink-secondary, #475467)" }}
+                                      >
+                                        Due {format(new Date(kr.dueDate), "MMM d, yyyy")}
+                                        {krOverdue ? " · overdue" : ""}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <KeyResultModal
-                                objectiveId={objective.id}
-                                objectiveDueDate={objective.dueDate}
-                                users={users}
-                                existing={{
-                                  id: kr.id,
-                                  title: kr.title,
-                                  dueDate: kr.dueDate ?? "",
-                                  ownerId: kr.ownerId ?? "",
-                                }}
-                              />
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                              <div className="h-1.5 w-[70px] overflow-hidden rounded-full bg-[#EEF0F3] md:w-[120px]">
-                                <div
-                                  className="h-full rounded-full bg-accent"
-                                  style={{ width: `${progress}%` }}
+                                <KeyResultModal
+                                  objectiveId={objective.id}
+                                  objectiveDueDate={objective.dueDate}
+                                  users={users}
+                                  existing={{
+                                    id: kr.id,
+                                    title: kr.title,
+                                    dueDate: kr.dueDate ?? "",
+                                    ownerId: kr.ownerId ?? "",
+                                  }}
                                 />
                               </div>
-                              <span className="min-w-[38px] text-right text-[14px] font-bold text-ink">
-                                {progress}%
-                              </span>
-                              <KeyResultStatusBadge status={kr.status} />
-                            </div>
-                          </div>
-
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-1.5 w-[70px] overflow-hidden rounded-full bg-[#EEF0F3] md:w-[120px]">
+                                  <div
+                                    className="h-full rounded-full bg-accent"
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                                <span className="min-w-[38px] text-right text-[14px] font-bold text-ink">
+                                  {progress}%
+                                </span>
+                                <KeyResultStatusBadge status={kr.status} />
+                              </div>
+                            </>
+                          }
+                        >
                           <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_190px_120px_130px_74px]">
                             <span>TASK</span>
                             <span>OWNER</span>
@@ -270,7 +275,7 @@ export default async function KeyResultsPage({
                               </div>
                             );
                           })}
-                        </div>
+                        </KeyResultAccordion>
                       );
                     })}
                   </div>
