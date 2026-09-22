@@ -56,7 +56,7 @@ export default function InviteUserModal({ users }: Props) {
     setResult(
       data.emailSent
         ? `Invite emailed to ${data.email}.`
-        : `Account created for ${data.email}, but the invite email couldn't be sent (email isn't configured yet) — see the README for setting up RESEND_API_KEY, or use "Resend invite" once it is.`
+        : `Account created for ${data.email}, but the invite email couldn't be sent (email isn't configured yet) — see the README for setting up SMTP_HOST/SMTP_USER/SMTP_PASS, or use "Resend invite" once it is.`
     );
     setName("");
     setEmail("");

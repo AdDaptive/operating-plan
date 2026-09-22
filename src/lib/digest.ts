@@ -56,8 +56,8 @@ export type DigestSendResult = {
  * manage anyone, a short rollup of their direct reports' overdue or
  * at-risk items, grouped the same way.
  *
- * Sends over whichever channels are configured (RESEND_API_KEY for email,
- * SLACK_BOT_TOKEN for Slack -- see src/lib/notifiers/). Either, both, or
+ * Sends over whichever channels are configured (SMTP_HOST/SMTP_USER/SMTP_PASS
+ * for email, SLACK_BOT_TOKEN for Slack -- see src/lib/notifiers/). Either, both, or
  * neither can be set; with neither set this still "sends" (logs what it
  * would have sent) so the digest content itself can be exercised.
  *
@@ -153,7 +153,7 @@ export type DigestPreview = {
  * Builds (but never sends, and never touches digest_logs) the digest
  * content for one user -- what the "Preview" link next to someone on the
  * Team page renders for that person. Lets you see exactly what the
- * email/Slack message would look like without RESEND_API_KEY or
+ * email/Slack message would look like without SMTP_HOST/SMTP_USER/SMTP_PASS or
  * SLACK_BOT_TOKEN configured yet, and without it counting as an actual
  * send for today.
  */

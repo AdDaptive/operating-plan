@@ -235,7 +235,7 @@ src/
     db.ts                         — the whole data layer (Postgres via `pg`)
     auth.ts                       — NextAuth credentials config
     digest.ts                     — builds + sends the daily digest
-    notifiers/email.ts            — Resend email sending
+    notifiers/email.ts            — SMTP email sending (nodemailer)
     notifiers/slack.ts            — Slack DM sending (Slack Web API)
     rollup.ts, status.ts, avatar.ts
 scripts/

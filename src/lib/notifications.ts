@@ -21,7 +21,7 @@ function escapeHtml(s: string): string {
  * to them -- separate from, and in addition to, the daily digest, which
  * only tells them about it once, the next time the sweep runs, and only
  * if it's already overdue/due-soon/flagged by then. This fires over
- * whichever channels are configured (RESEND_API_KEY / SLACK_BOT_TOKEN),
+ * whichever channels are configured (SMTP_HOST/SMTP_USER/SMTP_PASS / SLACK_BOT_TOKEN),
  * same as the digest; with neither set it just logs what it would have
  * sent (see src/lib/notifiers/). Never throws -- a notification failure
  * should never fail the task-creation request itself.

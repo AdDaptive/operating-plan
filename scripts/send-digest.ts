@@ -2,7 +2,7 @@
  * Run this on a schedule (cron, a serverless scheduled function, GitHub
  * Actions, etc.) to send everyone their daily status digest -- their own
  * overdue / due-today / due-soon / at-risk tasks, plus a team rollup for
- * anyone who manages others. Sends over email (Resend, via RESEND_API_KEY)
+ * anyone who manages others. Sends over email (SMTP, via SMTP_HOST/SMTP_USER/SMTP_PASS)
  * and/or Slack (via SLACK_BOT_TOKEN) -- see src/lib/notifiers/.
  *
  *   npm run digest
