@@ -5,6 +5,7 @@ import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META } from "@/lib/status";
 import { initials, colorForName } from "@/lib/avatar";
 import ObjectiveModal from "./ObjectiveModal";
+import DeleteObjectiveButton from "./DeleteObjectiveButton";
 
 function ringStyle(progress: number, color: string) {
   const deg = Math.round((progress / 100) * 360);
@@ -62,6 +63,11 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
               team: objective.team ?? "",
               dueDate: objective.dueDate ?? "",
             }}
+          />
+          <DeleteObjectiveButton
+            objectiveId={objective.id}
+            keyResultCount={objective.keyResults.length}
+            taskCount={objective.taskCount}
           />
           <div style={ringStyle(objective.progress, ringColor)}>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[11px] font-bold text-ink">

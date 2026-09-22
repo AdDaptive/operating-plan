@@ -12,6 +12,7 @@ import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
 import ObjectiveModal from "@/components/ObjectiveModal";
+import DeleteObjectiveButton from "@/components/DeleteObjectiveButton";
 
 export default async function BoardPage({ params }: { params: { objectiveId: string } }) {
   const objective = await getObjectiveFull(params.objectiveId);
@@ -20,6 +21,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
   const users = (await listUsers()).map((u) => ({ id: u.id, name: u.name }));
   const overallProgress = objectiveProgress(objective.keyResults);
   const allKeyResults = objective.keyResults.map((kr) => ({ id: kr.id, title: kr.title }));
+  const totalTaskCount = objective.keyResults.reduce((sum, kr) => sum + kr.tasks.length, 0);
 
   return (
     <>
@@ -43,6 +45,12 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
               team: objective.team ?? "",
               dueDate: objective.dueDate ?? "",
             }}
+          />
+          <DeleteObjectiveButton
+            objectiveId={objective.id}
+            keyResultCount={objective.keyResults.length}
+            taskCount={totalTaskCount}
+            redirectTo="/objectives"
           />
         </div>
         <div className="flex items-center gap-3">

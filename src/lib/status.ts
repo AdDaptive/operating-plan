@@ -2,6 +2,7 @@ import type { TaskStatus } from "@/lib/db";
 
 export const STATUS_ORDER: TaskStatus[] = [
   "NOT_STARTED",
+  "IN_PROGRESS",
   "ON_TRACK",
   "AT_RISK",
   "DONE",
@@ -16,6 +17,12 @@ export const STATUS_META: Record<
     bg: "#F2F4F7",
     text: "#475467",
     dot: "#98A2B3",
+  },
+  IN_PROGRESS: {
+    label: "In Progress",
+    bg: "#EEF2FF",
+    text: "#4338CA",
+    dot: "#6366F1",
   },
   ON_TRACK: {
     label: "On Track",
@@ -45,6 +52,7 @@ export const STATUS_META: Record<
  */
 export const STATUS_PROGRESS: Record<TaskStatus, number> = {
   NOT_STARTED: 0,
+  IN_PROGRESS: 30,
   ON_TRACK: 60,
   AT_RISK: 40,
   DONE: 100,

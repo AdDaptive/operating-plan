@@ -15,7 +15,7 @@ import { Pool } from "pg";
 import crypto from "node:crypto";
 import { computeKeyResultStatus } from "@/lib/rollup";
 
-export type TaskStatus = "NOT_STARTED" | "ON_TRACK" | "AT_RISK" | "DONE";
+export type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "ON_TRACK" | "AT_RISK" | "DONE";
 
 /**
  * Eisenhower-style urgency/importance classification, set (optionally) at

@@ -7,9 +7,10 @@ import { STATUS_PROGRESS } from "@/lib/status";
  * ranking -- separate from STATUS_ORDER (dropdown display order) and
  * STATUS_PROGRESS (percentage mapping) -- and, like STATUS_PROGRESS, is an
  * easily-adjustable convention rather than a fixed rule. Earlier in this
- * list = more severe / wins over anything later in it.
+ * list = more severe / wins over anything later in it. IN_PROGRESS sits
+ * right after NOT_STARTED: started but not yet vouched for as On Track.
  */
-const STATUS_SEVERITY: TaskStatus[] = ["AT_RISK", "NOT_STARTED", "ON_TRACK", "DONE"];
+const STATUS_SEVERITY: TaskStatus[] = ["AT_RISK", "NOT_STARTED", "IN_PROGRESS", "ON_TRACK", "DONE"];
 
 /**
  * A key result no longer has a manually-set status -- it's derived from
