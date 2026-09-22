@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { format } from "date-fns";
-import { listRecentTaskActivity, listUsers } from "@/lib/db";
-import { formatActivityValue, ACTIVITY_FIELD_LABELS } from "@/lib/activityLabel";
+import { format, formatDistanceToNow } from "date-fns";
+import { listRecentTaskActivity, listTasksWithActivityStatus, listUsers } from "@/lib/db";
+import {
+  formatActivityValue,
+  ACTIVITY_FIELD_LABELS,
+  activityFreshness,
+  FRESHNESS_META,
+} from "@/lib/activityLabel";
 import { initials, colorForName } from "@/lib/avatar";
+import StatusPill from "@/components/StatusPill";
 
 const ACTIVITY_LIMIT = 200;
 
@@ -15,8 +21,21 @@ const ACTIVITY_LIMIT = 200;
  * tracked here, matching exactly what was asked for.
  */
 export default async function ActivityPage() {
-  const [activity, users] = await Promise.all([listRecentTaskActivity(ACTIVITY_LIMIT), listUsers()]);
+  const [activity, tasks, users] = await Promise.all([
+    listRecentTaskActivity(ACTIVITY_LIMIT),
+    listTasksWithActivityStatus(),
+    listUsers(),
+  ]);
   const userById = new Map(users.map((u) => [u.id, u]));
+
+  // Most-stale-first: never-changed tasks lead, then the longest-untouched
+  // yellow tasks, then green tasks -- the point of this list is to surface
+  // what's gone stale, not to read chronologically.
+  const tasksByFreshness = [...tasks].sort((a, b) => {
+    const aTime = a.lastChangedAt ? new Date(a.lastChangedAt).getTime() : -Infinity;
+    const bTime = b.lastChangedAt ? new Date(b.lastChangedAt).getTime() : -Infinity;
+    return aTime - bTime;
+  });
 
   return (
     <>
@@ -32,6 +51,97 @@ export default async function ActivityPage() {
       </div>
 
       <div className="flex-grow overflow-y-auto p-4 md:p-7">
+        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <h2 className="text-[15px] font-bold text-ink">All tasks</h2>
+          <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-ink-tertiary">
+            {(["green", "yellow", "red"] as const).map((key) => (
+              <span key={key} className="flex items-center gap-1.5">
+                <span
+                  className="h-[8px] w-[8px] flex-shrink-0 rounded-full"
+                  style={{ background: FRESHNESS_META[key].dot }}
+                />
+                {FRESHNESS_META[key].label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="mb-7 overflow-hidden rounded-card border border-line bg-white">
+          {tasksByFreshness.length === 0 ? (
+            <div className="px-5 py-10 text-center text-[13px] text-ink-tertiary">
+              No tasks yet.
+            </div>
+          ) : (
+            <>
+              <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1.1fr_140px_120px_170px]">
+                <span>TASK</span>
+                <span>KEY RESULT</span>
+                <span>OWNER</span>
+                <span>STATUS</span>
+                <span>LAST CHANGED</span>
+              </div>
+              {tasksByFreshness.map((t) => {
+                const freshness = activityFreshness(t.lastChangedAt);
+                const meta = FRESHNESS_META[freshness];
+                return (
+                  <Link
+                    key={t.id}
+                    href={t.objectiveId ? `/board/${t.objectiveId}` : "/activity"}
+                    className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.3fr_1.1fr_140px_120px_170px] md:items-center md:gap-3"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-[8px] w-[8px] flex-shrink-0 rounded-full"
+                        style={{ background: meta.dot }}
+                        title={meta.label}
+                      />
+                      <div className="min-w-0">
+                        <div className="truncate text-[13.5px] font-medium text-ink">{t.title}</div>
+                        {t.objectiveTitle && (
+                          <div className="truncate text-[11.5px] text-ink-tertiary">{t.objectiveTitle}</div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="truncate text-[12.5px] text-ink-secondary">
+                      <span className="font-semibold text-ink-tertiary md:hidden">Key result: </span>
+                      {t.keyResultTitle || "—"}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink-tertiary md:hidden">Owner: </span>
+                      {t.owner ? (
+                        <>
+                          <div
+                            className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                            style={{ background: colorForName(t.owner.name) }}
+                          >
+                            {initials(t.owner.name)}
+                          </div>
+                          <span className="truncate text-[12.5px] text-[#344054]">{t.owner.name}</span>
+                        </>
+                      ) : (
+                        <span className="text-[12.5px] text-ink-tertiary">Unassigned</span>
+                      )}
+                    </div>
+                    <span>
+                      <span className="font-semibold text-ink-tertiary md:hidden">Status: </span>
+                      <StatusPill status={t.status} />
+                    </span>
+                    <span
+                      className="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+                      style={{ background: meta.bg, color: meta.text }}
+                    >
+                      <span className="font-semibold md:hidden">Last changed: </span>
+                      {t.lastChangedAt
+                        ? formatDistanceToNow(new Date(t.lastChangedAt), { addSuffix: true })
+                        : "Never changed"}
+                    </span>
+                  </Link>
+                );
+              })}
+            </>
+          )}
+        </div>
+
+        <h2 className="mb-3 text-[15px] font-bold text-ink">Recent changes</h2>
         <div className="overflow-hidden rounded-card border border-line bg-white">
           {activity.length === 0 ? (
             <div className="px-5 py-10 text-center text-[13px] text-ink-tertiary">

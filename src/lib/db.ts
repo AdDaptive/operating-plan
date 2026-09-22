@@ -923,6 +923,53 @@ export async function listRecentTaskActivity(limit = 200): Promise<TaskActivityF
   });
 }
 
+export type TaskWithActivityStatus = TaskRow & {
+  owner: UserRow | null;
+  subOwner: UserRow | null;
+  keyResultTitle: string;
+  objectiveId: string;
+  objectiveTitle: string;
+  /** Most recent task_activity."changedAt" for this task, or null if it has never had a tracked field change. */
+  lastChangedAt: string | null;
+};
+
+/**
+ * Every task (any status, org-wide), each paired with the timestamp of its
+ * most recent tracked change (status/due date/sub-owner/details/notes) --
+ * or null if it has never had one logged. Backs the "All tasks" freshness
+ * list on the /activity page (see activityLabel.ts's `activityFreshness`
+ * for how that timestamp turns into green/yellow/red).
+ */
+export async function listTasksWithActivityStatus(): Promise<TaskWithActivityStatus[]> {
+  const [tasks, lastChanged, users, keyResults, objectives] = await Promise.all([
+    query<TaskRow>("SELECT * FROM tasks"),
+    query<{ taskId: string; lastChangedAt: string }>(
+      'SELECT "taskId", MAX("changedAt") AS "lastChangedAt" FROM task_activity GROUP BY "taskId"'
+    ),
+    listUsers(),
+    query<KeyResultRow>("SELECT * FROM key_results"),
+    listObjectives(),
+  ]);
+  const lastChangedByTaskId = new Map(lastChanged.map((r) => [r.taskId, r.lastChangedAt]));
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const krById = new Map(keyResults.map((kr) => [kr.id, kr]));
+  const objById = new Map(objectives.map((o) => [o.id, o]));
+
+  return tasks.map((t) => {
+    const kr = krById.get(t.keyResultId);
+    const objective = kr ? objById.get(kr.objectiveId) : undefined;
+    return {
+      ...t,
+      owner: userById.get(t.ownerId) ?? null,
+      subOwner: t.subOwnerId ? (userById.get(t.subOwnerId) ?? null) : null,
+      keyResultTitle: kr?.title ?? "",
+      objectiveId: objective?.id ?? "",
+      objectiveTitle: objective?.title ?? "",
+      lastChangedAt: lastChangedByTaskId.get(t.id) ?? null,
+    };
+  });
+}
+
 /** Wipes all rows (dev/seed convenience) -- keeps the schema. */
 export async function resetAllData(): Promise<void> {
   await query("DELETE FROM digest_logs");
