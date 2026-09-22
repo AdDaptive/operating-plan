@@ -9,3 +9,10 @@ data.db
 data.db-journal
 data.db-wal
 data.db-shm
+
+# Generated at build time by next-pwa (workbox service worker) -- fresh
+# every build, no reason to track it.
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map

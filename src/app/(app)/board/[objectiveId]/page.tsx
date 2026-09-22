@@ -23,8 +23,8 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
 
   return (
     <>
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-white px-7 py-[18px]">
-        <div className="flex items-center gap-2 text-[14.5px]">
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-line bg-white px-4 py-3 md:flex-nowrap md:px-7 md:py-[18px]">
+        <div className="flex flex-wrap items-center gap-2 text-[14.5px]">
           <Link href="/objectives" className="text-ink-tertiary hover:text-ink-secondary">
             Objectives
           </Link>
@@ -53,7 +53,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
         </div>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-7">
+      <div className="flex-grow overflow-y-auto p-4 md:p-7">
         <div className="flex flex-col gap-5">
           {objective.keyResults.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-3 rounded-card border border-dashed border-line bg-white py-16 text-center">
@@ -73,7 +73,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
             const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
             return (
               <div key={kr.id} className="overflow-hidden rounded-card border border-line bg-white">
-                <div className="flex items-center justify-between border-b border-[#EEF0F3] px-5 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-y-2 border-b border-[#EEF0F3] px-5 py-4">
                   <div className="flex items-start gap-2">
                     <div>
                       <div className="mb-1 text-[10px] font-bold tracking-wide text-ink-tertiary">
@@ -116,7 +116,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                     />
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="h-1.5 w-[120px] overflow-hidden rounded-full bg-[#EEF0F3]">
+                    <div className="h-1.5 w-[70px] overflow-hidden rounded-full bg-[#EEF0F3] md:w-[120px]">
                       <div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
                     </div>
                     <span className="min-w-[38px] text-right text-[14px] font-bold text-ink">
@@ -126,7 +126,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                   </div>
                 </div>
 
-                <div className="grid grid-cols-[1fr_190px_120px_130px_74px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+                <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_190px_120px_130px_74px]">
                   <span>TASK</span>
                   <span>OWNER</span>
                   <span>DUE DATE</span>
@@ -145,7 +145,7 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                   return (
                     <div
                       key={task.id}
-                      className="grid grid-cols-[1fr_190px_120px_130px_74px] items-start gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                      className="flex flex-col gap-2 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1fr_190px_120px_130px_74px] md:items-start md:gap-3"
                     >
                       <div className="flex min-w-0 flex-col gap-1 pt-0.5">
                         <div className="flex min-w-0 items-center gap-2.5">
@@ -184,7 +184,8 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 pt-0.5">
+                      <div className="flex items-center gap-2 md:pt-0.5">
+                        <span className="font-semibold text-ink-tertiary md:hidden">Owner: </span>
                         <div
                           className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                           style={{ background: colorForName(task.owner.name) }}
@@ -196,16 +197,17 @@ export default async function BoardPage({ params }: { params: { objectiveId: str
                         </span>
                       </div>
                       <div
-                        className="pt-0.5 text-[13px] font-medium"
+                        className="text-[13px] font-medium md:pt-0.5"
                         style={{ color: overdue ? "#B42318" : "#475467" }}
                       >
+                        <span className="font-semibold text-ink-tertiary md:hidden">Due: </span>
                         {format(new Date(task.dueDate), "MMM d")}
                         {overdue ? " · overdue" : ""}
                       </div>
-                      <div className="pt-0.5">
+                      <div className="md:pt-0.5">
                         <StatusSelect taskId={task.id} status={task.status} />
                       </div>
-                      <div className="flex items-center gap-1 pt-0.5">
+                      <div className="flex items-center gap-1 md:pt-0.5">
                         <TaskModal
                           keyResults={allKeyResults}
                           users={users}

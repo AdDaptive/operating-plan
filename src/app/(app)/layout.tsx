@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getObjectivesFull, getUserById } from "@/lib/db";
 import { objectiveProgress } from "@/lib/rollup";
 import Sidebar from "@/components/Sidebar";
+import MobileNav from "@/components/MobileNav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -23,16 +24,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     progress: objectiveProgress(o.keyResults),
   }));
 
+  const userSummary = {
+    name: currentUser?.name ?? session.user?.name ?? "",
+    email: currentUser?.email ?? session.user?.email ?? "",
+  };
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-surface-sunk font-sans text-ink">
-      <Sidebar
-        objectives={sidebarObjectives}
-        user={{
-          name: currentUser?.name ?? session.user?.name ?? "",
-          email: currentUser?.email ?? session.user?.email ?? "",
-        }}
-      />
-      <div className="flex min-w-0 flex-grow flex-col overflow-hidden">{children}</div>
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-surface-sunk font-sans text-ink md:flex-row">
+      <Sidebar objectives={sidebarObjectives} user={userSummary} />
+      <MobileNav objectives={sidebarObjectives} user={userSummary} />
+      <div className="flex min-w-0 flex-grow flex-col overflow-hidden pb-14 md:pb-0">{children}</div>
     </div>
   );
 }

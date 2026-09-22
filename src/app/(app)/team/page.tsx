@@ -43,7 +43,7 @@ export default async function TeamPage() {
 
   return (
     <>
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-white px-7 py-5">
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-line bg-white px-4 py-4 md:px-7 md:py-5">
         <div>
           <h1 className="font-display text-[21px] font-bold text-ink">Team</h1>
           <p className="mt-1 text-[13px] text-ink-secondary">
@@ -58,14 +58,14 @@ export default async function TeamPage() {
         </div>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-7">
+      <div className="flex-grow overflow-y-auto p-4 md:p-7">
         {!isAdmin && (
           <p className="mb-4 text-[12.5px] text-ink-tertiary">
             Accounts are created by an admin now — ask one to invite anyone who&rsquo;s missing.
           </p>
         )}
         <div className="overflow-hidden rounded-card border border-line bg-white">
-          <div className="grid grid-cols-[1.3fr_1fr_100px_100px_90px_210px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+          <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1fr_100px_100px_90px_210px]">
             <span>PERSON</span>
             <span>REPORTS TO</span>
             <span>OPEN TASKS</span>
@@ -76,7 +76,7 @@ export default async function TeamPage() {
           {rows.map((r) => (
             <div
               key={r.id}
-              className="grid grid-cols-[1.3fr_1fr_100px_100px_90px_210px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+              className="flex flex-col gap-2 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1.3fr_1fr_100px_100px_90px_210px] md:items-center md:gap-3"
             >
               <div className="flex min-w-0 items-center gap-2.5">
                 <div
@@ -102,15 +102,25 @@ export default async function TeamPage() {
                   <div className="truncate text-[11.5px] text-ink-tertiary">{r.email}</div>
                 </div>
               </div>
-              <div className="truncate text-[13px] text-ink-secondary">{r.managerName ?? "—"}</div>
-              <div className="text-[13.5px] font-semibold text-ink">{r.openTasks}</div>
+              <div className="truncate text-[13px] text-ink-secondary">
+                <span className="font-semibold text-ink-tertiary md:hidden">Reports to: </span>
+                {r.managerName ?? "—"}
+              </div>
+              <div className="text-[13.5px] font-semibold text-ink">
+                <span className="font-semibold text-ink-tertiary md:hidden">Open tasks: </span>
+                {r.openTasks}
+              </div>
               <div
                 className="text-[13.5px] font-semibold"
                 style={{ color: r.overdueTasks > 0 ? "#B42318" : "#475467" }}
               >
+                <span className="font-semibold text-ink-tertiary md:hidden">Overdue: </span>
                 {r.overdueTasks}
               </div>
-              <div className="text-[13.5px] text-ink-secondary">{r.totalTasks}</div>
+              <div className="text-[13.5px] text-ink-secondary">
+                <span className="font-semibold text-ink-tertiary md:hidden">Total: </span>
+                {r.totalTasks}
+              </div>
               <div>
                 {r.pending ? (
                   isAdmin ? (

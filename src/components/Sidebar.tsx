@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import SignOutButton from "./SignOutButton";
 import { initials, colorForName } from "@/lib/avatar";
 
-const NAV_ICONS: Record<string, JSX.Element> = {
+export const NAV_ICONS: Record<string, JSX.Element> = {
   home: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -52,7 +52,7 @@ export default function Sidebar({
   const pathname = usePathname();
 
   return (
-    <div className="flex w-[252px] flex-shrink-0 flex-col border-r border-line bg-white p-3.5">
+    <div className="hidden w-[252px] flex-shrink-0 flex-col border-r border-line bg-white p-3.5 md:flex">
       <div className="flex items-center gap-2.5 px-2 pb-4 pt-1">
         <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-accent font-display text-sm font-extrabold text-white">
           A

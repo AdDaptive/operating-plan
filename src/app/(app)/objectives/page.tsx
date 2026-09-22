@@ -27,7 +27,7 @@ export default async function ObjectivesPage() {
 
   return (
     <>
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-white px-7 py-5">
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-line bg-white px-4 py-4 md:px-7 md:py-5">
         <div>
           <h1 className="font-display text-[21px] font-bold text-ink">Objectives</h1>
           <p className="mt-1 text-[13px] text-ink-secondary">
@@ -37,7 +37,7 @@ export default async function ObjectivesPage() {
         <ObjectiveModal />
       </div>
 
-      <div className="flex-grow overflow-y-auto p-7">
+      <div className="flex-grow overflow-y-auto p-4 md:p-7">
         {cards.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white py-20 text-center">
             <p className="font-display text-[16px] font-bold text-ink">No objectives yet</p>

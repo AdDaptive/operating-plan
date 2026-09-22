@@ -28,7 +28,7 @@ export default async function ReportsPage() {
 
   return (
     <>
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-line bg-white px-7 py-5">
+      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-line bg-white px-4 py-4 md:px-7 md:py-5">
         <div>
           <h1 className="font-display text-[21px] font-bold text-ink">Reports</h1>
           <p className="mt-1 text-[13px] text-ink-secondary">
@@ -38,7 +38,7 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-7">
+      <div className="flex-grow overflow-y-auto p-4 md:p-7">
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
           {STATUS_ORDER.map((s) => (
             <div key={s} className="rounded-card border border-line bg-white p-4">
@@ -55,7 +55,7 @@ export default async function ReportsPage() {
           <div className="border-b border-[#EEF0F3] px-5 py-3 text-[13px] font-bold text-ink">
             Objective progress
           </div>
-          <div className="grid grid-cols-[1fr_100px_110px_110px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+          <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_100px_110px_110px]">
             <span>OBJECTIVE</span>
             <span>PROGRESS</span>
             <span>KEY RESULTS</span>
@@ -65,12 +65,18 @@ export default async function ReportsPage() {
             <Link
               key={o.id}
               href={`/board/${o.id}`}
-              className="grid grid-cols-[1fr_100px_110px_110px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel"
+              className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1fr_100px_110px_110px] md:items-center md:gap-3"
             >
               <span className="truncate text-[13.5px] font-medium text-ink">{o.title}</span>
-              <span className="text-[13.5px] font-semibold text-ink">{o.progress}%</span>
-              <span className="text-[13px] text-ink-secondary">{o.keyResultCount}</span>
-              <span className="text-[13px] text-ink-secondary">{o.taskCount}</span>
+              <span className="text-[13.5px] font-semibold text-ink">{o.progress}% complete</span>
+              <span className="text-[13px] text-ink-secondary">
+                <span className="font-semibold text-ink-tertiary md:hidden">Key results: </span>
+                {o.keyResultCount}
+              </span>
+              <span className="text-[13px] text-ink-secondary">
+                <span className="font-semibold text-ink-tertiary md:hidden">Tasks: </span>
+                {o.taskCount}
+              </span>
             </Link>
           ))}
         </div>
@@ -83,7 +89,7 @@ export default async function ReportsPage() {
             <div className="px-5 py-5 text-[13px] text-ink-tertiary">Nothing overdue. Nice.</div>
           ) : (
             <>
-              <div className="grid grid-cols-[1fr_170px_110px] gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
+              <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_170px_110px]">
                 <span>TASK</span>
                 <span>OWNER</span>
                 <span>DUE DATE</span>
@@ -91,7 +97,7 @@ export default async function ReportsPage() {
               {overdueTasks.map((t) => (
                 <div
                   key={t.id}
-                  className="grid grid-cols-[1fr_170px_110px] items-center gap-3 border-t border-[#F2F4F7] px-5 py-3"
+                  className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1fr_170px_110px] md:items-center md:gap-3"
                 >
                   <span className="truncate text-[13.5px] font-medium text-ink">{t.title}</span>
                   <div className="flex items-center gap-2">
@@ -104,6 +110,7 @@ export default async function ReportsPage() {
                     <span className="truncate text-[13px] text-[#344054]">{t.owner.name}</span>
                   </div>
                   <div className="text-[13px] font-medium" style={{ color: "#B42318" }}>
+                    <span className="font-semibold text-ink-tertiary md:hidden">Due: </span>
                     {format(new Date(t.dueDate), "MMM d")}
                   </div>
                 </div>
