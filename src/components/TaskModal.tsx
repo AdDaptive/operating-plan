@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { TaskStatus } from "@/lib/db";
+import { format } from "date-fns";
+import type { TaskStatus, TaskActivityField } from "@/lib/db";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
 import { STATUS_ORDER, STATUS_META } from "@/lib/status";
 import { PRIORITY_ORDER, PRIORITY_META } from "@/lib/priority";
+import { formatActivityValue, ACTIVITY_FIELD_LABELS } from "@/lib/activityLabel";
 
 type Existing = {
   id: string;
@@ -19,6 +21,15 @@ type Existing = {
   keyResultId: string;
   description: string;
   notes: string;
+};
+
+type ActivityEntry = {
+  id: string;
+  field: TaskActivityField;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
+  changedBy: { id: string; name: string } | null;
 };
 
 export default function TaskModal({
@@ -43,6 +54,24 @@ export default function TaskModal({
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<ActivityEntry[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  async function toggleHistory() {
+    if (historyOpen) {
+      setHistoryOpen(false);
+      return;
+    }
+    setHistoryOpen(true);
+    if (history === null && existing) {
+      setHistoryLoading(true);
+      const res = await fetch(`/api/tasks/${existing.id}/activity`);
+      setHistory(res.ok ? await res.json() : []);
+      setHistoryLoading(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -211,6 +240,48 @@ export default function TaskModal({
               placeholder="Status updates for yourself or whoever's watching this task"
             />
           </Field>
+          {existing && (
+            <div className="rounded-lg border border-line">
+              <button
+                type="button"
+                onClick={toggleHistory}
+                className="flex w-full items-center justify-between px-3 py-2.5 text-[12.5px] font-semibold text-ink-secondary hover:text-ink"
+              >
+                <span>
+                  History{history && history.length > 0 ? ` (${history.length})` : ""}
+                </span>
+                <span className="text-ink-tertiary">{historyOpen ? "▴" : "▾"}</span>
+              </button>
+              {historyOpen && (
+                <div className="max-h-[220px] overflow-y-auto border-t border-line px-3 py-2.5">
+                  {historyLoading && <p className="text-[12px] text-ink-tertiary">Loading…</p>}
+                  {!historyLoading && history && history.length === 0 && (
+                    <p className="text-[12px] text-ink-tertiary">
+                      No changes recorded yet -- status, due date, sub-owner, details, and notes
+                      edits will show up here.
+                    </p>
+                  )}
+                  {!historyLoading && history && history.length > 0 && (
+                    <ul className="flex flex-col gap-2.5">
+                      {history.map((h) => (
+                        <li key={h.id} className="text-[12px] leading-relaxed text-ink-secondary">
+                          <span className="font-semibold text-ink">{ACTIVITY_FIELD_LABELS[h.field]}</span>
+                          {": "}
+                          {formatActivityValue(h.field, h.oldValue, userById)}
+                          {" → "}
+                          {formatActivityValue(h.field, h.newValue, userById)}
+                          <div className="text-[11px] text-ink-tertiary">
+                            {h.changedBy?.name ?? "Someone"} ·{" "}
+                            {format(new Date(h.changedAt), "MMM d, yyyy 'at' h:mm a")}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button
             disabled={loading}

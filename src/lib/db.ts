@@ -94,6 +94,25 @@ export type DigestLogRow = {
   sentAt: string;
 };
 
+/**
+ * The task fields this app tracks a change history for -- deliberately
+ * just these five (status, due date, sub-owner, details, notes), matching
+ * exactly what was asked for. Title, owner, priority, and which key
+ * result a task belongs to are NOT tracked here.
+ */
+export type TaskActivityField = "status" | "dueDate" | "subOwnerId" | "description" | "notes";
+
+export type TaskActivityRow = {
+  id: string;
+  taskId: string;
+  field: TaskActivityField;
+  oldValue: string | null;
+  newValue: string | null;
+  /** Who made the change (the signed-in session user's id). Null for a system-driven update with no actor. */
+  changedById: string | null;
+  changedAt: string;
+};
+
 const globalForDb = globalThis as unknown as {
   __addaptivePool?: Pool;
   __addaptiveSchemaReady?: Promise<void>;
@@ -195,6 +214,20 @@ async function ensureSchema(): Promise<void> {
       "recipientEmail" TEXT NOT NULL,
       channel TEXT NOT NULL,
       "sentAt" TEXT NOT NULL
+    );
+
+    -- Movement/change log: one row per tracked field that actually changed
+    -- value on a task edit (status, dueDate, subOwnerId, description,
+    -- notes -- see TRACKED_ACTIVITY_FIELDS below). Cascades away with its
+    -- task, same as reminder_logs.
+    CREATE TABLE IF NOT EXISTS task_activity (
+      id TEXT PRIMARY KEY,
+      "taskId" TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      field TEXT NOT NULL,
+      "oldValue" TEXT,
+      "newValue" TEXT,
+      "changedById" TEXT REFERENCES users(id),
+      "changedAt" TEXT NOT NULL
     );
 
     -- Migration from the original quarter / current-target-unit schema to
@@ -583,6 +616,23 @@ export async function getTaskById(id: string): Promise<TaskRow | undefined> {
   return queryOne<TaskRow>('SELECT * FROM tasks WHERE id = $1', [id]);
 }
 
+/** The five fields updateTask diffs on every edit and logs to task_activity when they actually change. */
+const TRACKED_ACTIVITY_FIELDS: TaskActivityField[] = ["status", "dueDate", "subOwnerId", "description", "notes"];
+
+async function logTaskFieldChange(
+  taskId: string,
+  field: TaskActivityField,
+  oldValue: string | null,
+  newValue: string | null,
+  changedById: string | null,
+  changedAt: string
+): Promise<void> {
+  await query(
+    'INSERT INTO task_activity (id, "taskId", field, "oldValue", "newValue", "changedById", "changedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    [newId("act"), taskId, field, oldValue, newValue, changedById, changedAt]
+  );
+}
+
 export async function updateTask(
   id: string,
   patch: Partial<
@@ -598,7 +648,9 @@ export async function updateTask(
       | "description"
       | "notes"
     >
-  >
+  >,
+  /** Who made this edit (the signed-in session user's id), for the movement log below. Null/omitted for a system-driven update with no actor. */
+  changedById?: string | null
 ): Promise<TaskRow | undefined> {
   const existing = await getTaskById(id);
   if (!existing) return undefined;
@@ -624,6 +676,17 @@ export async function updateTask(
       id,
     ]
   );
+
+  // Movement log: one row per tracked field whose value actually changed
+  // (comparing the final written value against what was there before --
+  // not just "was this field present in the patch," since saving the form
+  // with no real change to a field shouldn't create a no-op log entry).
+  for (const field of TRACKED_ACTIVITY_FIELDS) {
+    if (existing[field] !== next[field]) {
+      await logTaskFieldChange(id, field, existing[field], next[field], changedById ?? null, next.updatedAt);
+    }
+  }
+
   return next;
 }
 
@@ -809,10 +872,62 @@ export async function listActiveTasksForReminders(): Promise<TaskForReminder[]> 
   });
 }
 
+// ---------- Task activity (movement log) ----------
+
+export type TaskActivityWithUser = TaskActivityRow & { changedBy: UserRow | null };
+
+/** One task's full change history, newest first. */
+export async function listTaskActivityForTask(taskId: string): Promise<TaskActivityWithUser[]> {
+  const [rows, users] = await Promise.all([
+    query<TaskActivityRow>('SELECT * FROM task_activity WHERE "taskId" = $1 ORDER BY "changedAt" DESC', [taskId]),
+    listUsers(),
+  ]);
+  const userById = new Map(users.map((u) => [u.id, u]));
+  return rows.map((r) => ({ ...r, changedBy: r.changedById ? (userById.get(r.changedById) ?? null) : null }));
+}
+
+export type TaskActivityFull = TaskActivityRow & {
+  changedBy: UserRow | null;
+  taskTitle: string;
+  keyResultTitle: string;
+  objectiveId: string;
+  objectiveTitle: string;
+};
+
+/** Every task's change history org-wide, newest first, capped at `limit` -- backs the org-wide Activity page. */
+export async function listRecentTaskActivity(limit = 200): Promise<TaskActivityFull[]> {
+  const [activity, tasks, keyResults, objectives, users] = await Promise.all([
+    query<TaskActivityRow>('SELECT * FROM task_activity ORDER BY "changedAt" DESC LIMIT $1', [limit]),
+    query<TaskRow>("SELECT * FROM tasks"),
+    query<KeyResultRow>("SELECT * FROM key_results"),
+    listObjectives(),
+    listUsers(),
+  ]);
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
+  const krById = new Map(keyResults.map((kr) => [kr.id, kr]));
+  const objById = new Map(objectives.map((o) => [o.id, o]));
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  return activity.map((a) => {
+    const task = taskById.get(a.taskId);
+    const kr = task ? krById.get(task.keyResultId) : undefined;
+    const objective = kr ? objById.get(kr.objectiveId) : undefined;
+    return {
+      ...a,
+      changedBy: a.changedById ? (userById.get(a.changedById) ?? null) : null,
+      taskTitle: task?.title ?? "(deleted task)",
+      keyResultTitle: kr?.title ?? "",
+      objectiveId: objective?.id ?? "",
+      objectiveTitle: objective?.title ?? "",
+    };
+  });
+}
+
 /** Wipes all rows (dev/seed convenience) -- keeps the schema. */
 export async function resetAllData(): Promise<void> {
   await query("DELETE FROM digest_logs");
   await query("DELETE FROM reminder_logs");
+  await query("DELETE FROM task_activity");
   await query("DELETE FROM tasks");
   await query("DELETE FROM key_results");
   await query("DELETE FROM objectives");

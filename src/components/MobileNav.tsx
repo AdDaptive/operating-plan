@@ -106,6 +106,21 @@ export default function MobileNav({
               </button>
             </div>
 
+            <div className="mb-5 flex flex-col gap-0.5">
+              <Link
+                href="/activity"
+                onClick={() => setDrawerOpen(false)}
+                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] ${
+                  pathname === "/activity"
+                    ? "bg-accent-soft font-semibold text-accent"
+                    : "font-medium text-[#344054] hover:bg-surface-sunk"
+                }`}
+              >
+                {NAV_ICONS.activity}
+                Activity
+              </Link>
+            </div>
+
             <div className="mb-2 px-1 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
               OBJECTIVES
             </div>

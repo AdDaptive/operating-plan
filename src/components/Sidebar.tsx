@@ -40,6 +40,12 @@ export const NAV_ICONS: Record<string, JSX.Element> = {
       <path d="M6 20v-6"></path>
     </svg>
   ),
+  activity: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"></circle>
+      <polyline points="12 7 12 12 15.5 14"></polyline>
+    </svg>
+  ),
 };
 
 export default function Sidebar({
@@ -74,6 +80,7 @@ export default function Sidebar({
         <SidebarLink href="/key-results" icon="tasks" label="Key Results" active={pathname === "/key-results"} />
         <SidebarLink href="/team" icon="team" label="Team" active={pathname === "/team"} />
         <SidebarLink href="/reports" icon="reports" label="Reports" active={pathname === "/reports"} />
+        <SidebarLink href="/activity" icon="activity" label="Activity" active={pathname === "/activity"} />
       </nav>
 
       <div className="mb-2 mt-5 px-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">
