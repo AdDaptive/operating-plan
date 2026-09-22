@@ -17,28 +17,20 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Notifies a task's owner right away when a task is created and assigned
- * to them -- separate from, and in addition to, the daily digest, which
- * only tells them about it once, the next time the sweep runs, and only
- * if it's already overdue/due-soon/flagged by then. This fires over
- * whichever channels are configured (SMTP_HOST/SMTP_USER/SMTP_PASS / SLACK_BOT_TOKEN),
- * same as the digest; with neither set it just logs what it would have
- * sent (see src/lib/notifiers/). Never throws -- a notification failure
- * should never fail the task-creation request itself.
- *
- * `creatorId`/`creatorName` are the signed-in person who created the
- * task; when they're also the task's owner (a self-assigned task), the
- * "assigned by" phrasing is left out rather than telling someone they
- * assigned a task to themselves.
+ * Shared by notifyTaskAssigned for both the task's primary owner and an
+ * optional delegated sub-owner -- the mechanics (build subject/text/html,
+ * send email + Slack DM) are identical, only the framing sentence and
+ * subject line differ ("assigned to you" vs. "delegated to you as a
+ * sub-owner"). Never throws -- a notification failure should never fail
+ * the task-creation request itself.
  */
-export async function notifyTaskAssigned(
+async function notifyPersonAboutTask(
   task: TaskRow,
-  creator: { id?: string | null; name?: string | null }
+  recipient: UserRow,
+  creator: { id?: string | null; name?: string | null },
+  role: "owner" | "sub-owner"
 ): Promise<void> {
   try {
-    const owner = await getUserById(task.ownerId);
-    if (!owner) return;
-
     const keyResult = await getKeyResultById(task.keyResultId);
     const objective = keyResult ? await getObjectiveById(keyResult.objectiveId) : undefined;
 
@@ -46,12 +38,20 @@ export async function notifyTaskAssigned(
     const meta = STATUS_META[task.status];
     const where = [objective?.title, keyResult?.title].filter(Boolean).join(" / ");
     const assignedBy =
-      creator.name && creator.id !== task.ownerId ? ` by ${creator.name}` : "";
+      creator.name && creator.id !== recipient.id ? ` by ${creator.name}` : "";
 
-    const subject = `New task assigned to you: ${task.title}`;
+    const intro =
+      role === "owner"
+        ? `You've been assigned a new task${assignedBy}`
+        : `You've been delegated as a sub-owner on a new task${assignedBy}`;
+
+    const subject =
+      role === "owner"
+        ? `New task assigned to you: ${task.title}`
+        : `You've been added as a sub-owner: ${task.title}`;
 
     const text =
-      `You've been assigned a new task${assignedBy}:\n\n` +
+      `${intro}:\n\n` +
       `${task.title}\n` +
       (where ? `${where}\n` : "") +
       `Due ${dueLabel} — ${meta.label}\n` +
@@ -63,7 +63,7 @@ export async function notifyTaskAssigned(
   <body style="margin:0;padding:24px;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
     <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:24px;">
       <p style="font-size:13px;color:#667085;margin:0 0 10px;">
-        You've been assigned a new task${assignedBy ? escapeHtml(assignedBy) : ""}
+        ${escapeHtml(intro)}
       </p>
       <h2 style="font-size:16px;color:#101828;margin:0 0 6px;">${escapeHtml(task.title)}</h2>
       ${where ? `<p style="font-size:13px;color:#667085;margin:0 0 6px;">${escapeHtml(where)}</p>` : ""}
@@ -86,11 +86,50 @@ export async function notifyTaskAssigned(
 </html>`;
 
     await Promise.all([
-      sendDigestEmail(owner.email, subject, html, text),
-      sendDigestSlackDM(owner.email, text),
+      sendDigestEmail(recipient.email, subject, html, text),
+      sendDigestSlackDM(recipient.email, text),
     ]);
   } catch (err) {
-    console.error("[task-assigned notification] failed:", err);
+    console.error(`[task-assigned notification] failed (${role}):`, err);
+  }
+}
+
+/**
+ * Notifies a task's owner right away when a task is created and assigned
+ * to them -- separate from, and in addition to, the daily digest, which
+ * only tells them about it once, the next time the sweep runs, and only
+ * if it's already overdue/due-soon/flagged by then. This fires over
+ * whichever channels are configured (SMTP_HOST/SMTP_USER/SMTP_PASS / SLACK_BOT_TOKEN),
+ * same as the digest; with neither set it just logs what it would have
+ * sent (see src/lib/notifiers/). Never throws -- a notification failure
+ * should never fail the task-creation request itself.
+ *
+ * `creatorId`/`creatorName` are the signed-in person who created the
+ * task; when they're also the task's owner (a self-assigned task), the
+ * "assigned by" phrasing is left out rather than telling someone they
+ * assigned a task to themselves.
+ *
+ * When the task also has a delegated sub-owner (`task.subOwnerId`, distinct
+ * from the owner), that person gets the same treatment -- full parity,
+ * same channels, same immediate timing -- with role-appropriate wording.
+ * Like the owner notification, this only fires at task-creation time, not
+ * on a later edit that adds or changes a sub-owner (matching the existing
+ * convention documented on notifyKeyResultAssigned below).
+ */
+export async function notifyTaskAssigned(
+  task: TaskRow,
+  creator: { id?: string | null; name?: string | null }
+): Promise<void> {
+  const owner = await getUserById(task.ownerId);
+  if (owner) {
+    await notifyPersonAboutTask(task, owner, creator, "owner");
+  }
+
+  if (task.subOwnerId && task.subOwnerId !== task.ownerId) {
+    const subOwner = await getUserById(task.subOwnerId);
+    if (subOwner) {
+      await notifyPersonAboutTask(task, subOwner, creator, "sub-owner");
+    }
   }
 }
 

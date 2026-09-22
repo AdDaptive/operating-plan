@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { title, status, dueDate, ownerId, keyResultId, description, notes } = body ?? {};
+  const { title, status, dueDate, ownerId, subOwnerId, priority, keyResultId, description, notes } = body ?? {};
   if (!title || !dueDate || !ownerId || !keyResultId) {
     return NextResponse.json(
       { error: "title, dueDate, ownerId, and keyResultId are required." },
@@ -17,7 +17,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const task = await createTask({ title, status, dueDate, ownerId, keyResultId, description, notes });
+  const task = await createTask({
+    title,
+    status,
+    dueDate,
+    ownerId,
+    subOwnerId,
+    priority,
+    keyResultId,
+    description,
+    notes,
+  });
 
   // Notify the owner right away over email/Slack -- separate from (and in
   // addition to) the daily digest. Awaited (not fire-and-forget) since a

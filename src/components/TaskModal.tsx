@@ -6,6 +6,7 @@ import type { TaskStatus } from "@/lib/db";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
 import { STATUS_ORDER, STATUS_META } from "@/lib/status";
+import { PRIORITY_ORDER, PRIORITY_META } from "@/lib/priority";
 
 type Existing = {
   id: string;
@@ -13,6 +14,8 @@ type Existing = {
   status: TaskStatus;
   dueDate: string;
   ownerId: string;
+  subOwnerId: string;
+  priority: string;
   keyResultId: string;
   description: string;
   notes: string;
@@ -33,6 +36,8 @@ export default function TaskModal({
   const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [ownerId, setOwnerId] = useState(existing?.ownerId ?? users[0]?.id ?? "");
+  const [subOwnerId, setSubOwnerId] = useState(existing?.subOwnerId ?? "");
+  const [priority, setPriority] = useState(existing?.priority ?? "");
   const [keyResultId, setKeyResultId] = useState(existing?.keyResultId ?? keyResults[0]?.id ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
@@ -53,6 +58,8 @@ export default function TaskModal({
         status,
         dueDate,
         ownerId,
+        subOwnerId: subOwnerId || null,
+        priority: priority || null,
         keyResultId,
         description: description || null,
         notes: notes || null,
@@ -141,6 +148,36 @@ export default function TaskModal({
                 onChange={(e) => setDueDate(e.target.value)}
                 className={inputClass}
               />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Sub-owner">
+              <select
+                value={subOwnerId}
+                onChange={(e) => setSubOwnerId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— None —</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Priority">
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">— None —</option>
+                {PRIORITY_ORDER.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_META[p].label}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
           <Field label="Status">

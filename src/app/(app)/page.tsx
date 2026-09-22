@@ -6,6 +6,7 @@ import { getObjectivesFull, listUsers } from "@/lib/db";
 import { bucketTasks, isTeamFlag } from "@/lib/taskBuckets";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
+import { PRIORITY_META } from "@/lib/priority";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
@@ -83,7 +84,7 @@ export default async function HomePage() {
   );
 
   const myTasks = allTasks
-    .filter((t) => t.ownerId === userId)
+    .filter((t) => t.ownerId === userId || t.subOwnerId === userId)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const bucket = bucketTasks(myTasks);
   // Header copy still reads as an urgency signal -- only count the
@@ -210,7 +211,23 @@ export default async function HomePage() {
                                 style={{ background: STATUS_META[task.status].dot }}
                               />
                               <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                              {task.priority && (
+                                <span
+                                  className="flex-shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                                  style={{
+                                    background: PRIORITY_META[task.priority].bg,
+                                    color: PRIORITY_META[task.priority].text,
+                                  }}
+                                >
+                                  {PRIORITY_META[task.priority].label}
+                                </span>
+                              )}
                             </div>
+                            {task.subOwner && (
+                              <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
+                                Also delegated to {task.subOwner.name}
+                              </div>
+                            )}
                             {task.description && (
                               <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
                                 {task.description}

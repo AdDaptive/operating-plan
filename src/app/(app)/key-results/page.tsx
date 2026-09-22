@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { getObjectivesFull, listUsers } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
+import { PRIORITY_META } from "@/lib/priority";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
@@ -24,6 +25,10 @@ export default async function KeyResultsPage() {
 
   const objectivesWithKeyResults = objectives.filter((o) => o.keyResults.length > 0);
   const totalKeyResults = objectives.reduce((sum, o) => sum + o.keyResults.length, 0);
+  // Flattened across every objective (unlike the board page's allKeyResults,
+  // which is scoped to just one) -- the header's "New Task" button lets the
+  // person pick which objective/key-result via the modal's own dropdown.
+  const allKeyResultsFlat = objectives.flatMap((o) => o.keyResults.map((kr) => ({ id: kr.id, title: kr.title })));
 
   return (
     <>
@@ -35,6 +40,7 @@ export default async function KeyResultsPage() {
             {objectivesWithKeyResults.length} objective{objectivesWithKeyResults.length === 1 ? "" : "s"}
           </p>
         </div>
+        {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} />}
       </div>
 
       <div className="flex-grow overflow-y-auto p-7">
@@ -155,7 +161,23 @@ export default async function KeyResultsPage() {
                                     <span className="truncate text-[13.5px] font-medium text-ink">
                                       {task.title}
                                     </span>
+                                    {task.priority && (
+                                      <span
+                                        className="flex-shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                                        style={{
+                                          background: PRIORITY_META[task.priority].bg,
+                                          color: PRIORITY_META[task.priority].text,
+                                        }}
+                                      >
+                                        {PRIORITY_META[task.priority].label}
+                                      </span>
+                                    )}
                                   </div>
+                                  {task.subOwner && (
+                                    <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
+                                      Also delegated to {task.subOwner.name}
+                                    </div>
+                                  )}
                                   {task.description && (
                                     <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
                                       {task.description}
@@ -198,6 +220,8 @@ export default async function KeyResultsPage() {
                                       status: task.status,
                                       dueDate: format(new Date(task.dueDate), "yyyy-MM-dd"),
                                       ownerId: task.ownerId,
+                                      subOwnerId: task.subOwnerId ?? "",
+                                      priority: task.priority ?? "",
                                       keyResultId: task.keyResultId,
                                       description: task.description ?? "",
                                       notes: task.notes ?? "",

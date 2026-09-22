@@ -17,6 +17,14 @@ import { computeKeyResultStatus } from "@/lib/rollup";
 
 export type TaskStatus = "NOT_STARTED" | "ON_TRACK" | "AT_RISK" | "DONE";
 
+/**
+ * Eisenhower-style urgency/importance classification, set (optionally) at
+ * task creation and editable afterward like every other task field. Null
+ * for a task nobody has classified -- there is deliberately no fourth
+ * "not urgent / not important" option, matching what was asked for.
+ */
+export type TaskPriority = "URGENT_IMPORTANT" | "URGENT_NOT_IMPORTANT" | "IMPORTANT_NOT_URGENT";
+
 export type UserRow = {
   id: string;
   name: string;
@@ -56,6 +64,11 @@ export type TaskRow = {
   status: TaskStatus;
   dueDate: string;
   ownerId: string;
+  /** Optional second owner ("delegate to a sub-owner") -- the task shows up under this
+   * person's tasks (Home dashboard, daily digest) exactly like it does for `ownerId`. */
+  subOwnerId: string | null;
+  /** Eisenhower urgency/importance classification -- see TaskPriority. Null = unclassified. */
+  priority: TaskPriority | null;
   keyResultId: string;
   /** Longer description of what the task actually involves. */
   description: string | null;
@@ -159,6 +172,8 @@ async function ensureSchema(): Promise<void> {
       status TEXT NOT NULL DEFAULT 'NOT_STARTED',
       "dueDate" TEXT NOT NULL,
       "ownerId" TEXT NOT NULL REFERENCES users(id),
+      "subOwnerId" TEXT REFERENCES users(id),
+      priority TEXT,
       "keyResultId" TEXT NOT NULL REFERENCES key_results(id) ON DELETE CASCADE,
       description TEXT,
       notes TEXT,
@@ -203,6 +218,12 @@ async function ensureSchema(): Promise<void> {
     -- the owner uses for their own status updates. Both nullable/additive.
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT;
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS notes TEXT;
+
+    -- Delegate-to-a-sub-owner (a second, optional owner the task also shows
+    -- up under) and an optional Eisenhower urgency/importance classification.
+    -- Both nullable/additive -- existing tasks simply have neither set.
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "subOwnerId" TEXT REFERENCES users(id);
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT;
 
     -- "Off Track" was removed as a status option. Re-map any existing rows
     -- (tasks, and the vestigial key_results.status column) to At Risk, the
@@ -531,6 +552,10 @@ export async function createTask(data: {
   keyResultId: string;
   description?: string | null;
   notes?: string | null;
+  /** Optional second owner ("delegate to a sub-owner"). */
+  subOwnerId?: string | null;
+  /** Optional Eisenhower urgency/importance classification. */
+  priority?: TaskPriority | null;
 }): Promise<TaskRow> {
   const now = nowIso();
   const row: TaskRow = {
@@ -539,6 +564,8 @@ export async function createTask(data: {
     status: data.status || "NOT_STARTED",
     dueDate: new Date(data.dueDate).toISOString(),
     ownerId: data.ownerId,
+    subOwnerId: data.subOwnerId ?? null,
+    priority: data.priority ?? null,
     keyResultId: data.keyResultId,
     description: data.description ?? null,
     notes: data.notes ?? null,
@@ -546,8 +573,8 @@ export async function createTask(data: {
     updatedAt: now,
   };
   await query(
-    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "keyResultId", description, notes, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.keyResultId, row.description, row.notes, row.createdAt, row.updatedAt]
+    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "subOwnerId", priority, "keyResultId", description, notes, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.subOwnerId, row.priority, row.keyResultId, row.description, row.notes, row.createdAt, row.updatedAt]
   );
   return row;
 }
@@ -559,7 +586,18 @@ export async function getTaskById(id: string): Promise<TaskRow | undefined> {
 export async function updateTask(
   id: string,
   patch: Partial<
-    Pick<TaskRow, "title" | "status" | "dueDate" | "ownerId" | "keyResultId" | "description" | "notes">
+    Pick<
+      TaskRow,
+      | "title"
+      | "status"
+      | "dueDate"
+      | "ownerId"
+      | "subOwnerId"
+      | "priority"
+      | "keyResultId"
+      | "description"
+      | "notes"
+    >
   >
 ): Promise<TaskRow | undefined> {
   const existing = await getTaskById(id);
@@ -571,12 +609,14 @@ export async function updateTask(
     updatedAt: nowIso(),
   };
   await query(
-    'UPDATE tasks SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4, "keyResultId" = $5, description = $6, notes = $7, "updatedAt" = $8 WHERE id = $9',
+    'UPDATE tasks SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4, "subOwnerId" = $5, priority = $6, "keyResultId" = $7, description = $8, notes = $9, "updatedAt" = $10 WHERE id = $11',
     [
       next.title,
       next.status,
       next.dueDate,
       next.ownerId,
+      next.subOwnerId,
+      next.priority,
       next.keyResultId,
       next.description,
       next.notes,
@@ -662,7 +702,7 @@ export async function createDigestLog(data: {
 
 // ---------- Composite reads (the "includes" Prisma would have done) ----------
 
-export type TaskWithOwner = TaskRow & { owner: UserRow };
+export type TaskWithOwner = TaskRow & { owner: UserRow; subOwner: UserRow | null };
 export type KeyResultWithTasks = KeyResultRow & { owner: UserRow | null; tasks: TaskWithOwner[] };
 export type ObjectiveFull = ObjectiveRow & { keyResults: KeyResultWithTasks[] };
 
@@ -682,7 +722,11 @@ export async function getObjectivesFull(): Promise<ObjectiveFull[]> {
       .map((kr) => {
         const krTasks = tasks
           .filter((t) => t.keyResultId === kr.id)
-          .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow }));
+          .map((t) => ({
+            ...t,
+            owner: userById.get(t.ownerId) as UserRow,
+            subOwner: t.subOwnerId ? (userById.get(t.subOwnerId) ?? null) : null,
+          }));
         return {
           ...kr,
           status: computeKeyResultStatus(krTasks),
@@ -711,7 +755,11 @@ export async function getObjectiveFull(id: string): Promise<ObjectiveFull | null
     keyResults: keyResults.map((kr) => {
       const krTasks = tasks
         .filter((t) => t.keyResultId === kr.id)
-        .map((t) => ({ ...t, owner: userById.get(t.ownerId) as UserRow }));
+        .map((t) => ({
+          ...t,
+          owner: userById.get(t.ownerId) as UserRow,
+          subOwner: t.subOwnerId ? (userById.get(t.subOwnerId) ?? null) : null,
+        }));
       return {
         ...kr,
         status: computeKeyResultStatus(krTasks),
@@ -724,6 +772,7 @@ export async function getObjectiveFull(id: string): Promise<ObjectiveFull | null
 
 export type TaskForReminder = TaskRow & {
   owner: UserRow;
+  subOwner: UserRow | null;
   manager: UserRow | null;
   keyResultTitle: string;
   objectiveId: string;
@@ -744,12 +793,14 @@ export async function listActiveTasksForReminders(): Promise<TaskForReminder[]> 
 
   return tasks.map((t) => {
     const owner = userById.get(t.ownerId) as UserRow;
+    const subOwner = t.subOwnerId ? (userById.get(t.subOwnerId) ?? null) : null;
     const manager = owner.managerId ? (userById.get(owner.managerId) ?? null) : null;
     const kr = krById.get(t.keyResultId);
     const objective = kr ? objById.get(kr.objectiveId) : undefined;
     return {
       ...t,
       owner,
+      subOwner,
       manager,
       keyResultTitle: kr?.title ?? "",
       objectiveId: objective?.id ?? "",

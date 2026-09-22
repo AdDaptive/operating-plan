@@ -23,7 +23,7 @@ type DigestContent = {
 /** Everything needed to render or send one person's digest, computed once. */
 function computeDigestContent(user: UserRow, tasks: TaskForReminder[], users: UserRow[]): DigestContent {
   const ownTasks = tasks
-    .filter((t) => t.ownerId === user.id)
+    .filter((t) => t.ownerId === user.id || t.subOwnerId === user.id)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   const ownItemCount = ownTasks.length;
   // Only used to flag "N overdue" in the subject line -- the body itself
