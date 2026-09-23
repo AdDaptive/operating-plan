@@ -15,6 +15,7 @@ import ObjectiveModal from "@/components/ObjectiveModal";
 import DeleteObjectiveButton from "@/components/DeleteObjectiveButton";
 import PersonFilter from "@/components/PersonFilter";
 import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
+import KeyResultAccordion from "@/components/KeyResultAccordion";
 
 export default async function BoardPage({
   params,
@@ -116,10 +117,19 @@ export default async function BoardPage({
           {keyResultsToShow.map((kr) => {
             const progress = keyResultProgress(kr);
             const krOverdue = kr.dueDate ? isOverdue(kr.dueDate, kr.status) : false;
+            // If the task ?editTask= points at (see editTaskId above) lives
+            // under this key result, force this accordion open on load --
+            // otherwise it's collapsed by default and TaskModal's autoOpen
+            // would never get a chance to mount.
+            const containsEditTask = kr.tasks.some((task) => task.id === editTaskId);
             return (
-              <div key={kr.id} className="overflow-hidden rounded-card border border-line bg-white">
-                <div className="flex flex-wrap items-center justify-between gap-y-2 border-b border-[#EEF0F3] px-5 py-4">
-                  <div className="flex items-start gap-2">
+              <KeyResultAccordion
+                key={kr.id}
+                taskCount={kr.tasks.length}
+                defaultOpen={containsEditTask}
+                header={
+                  <>
+                    <div className="flex items-start gap-2">
                     <div>
                       <div className="mb-1 text-[10px] font-bold tracking-wide text-ink-tertiary">
                         KEY RESULT
@@ -170,8 +180,9 @@ export default async function BoardPage({
                     </span>
                     <KeyResultStatusBadge status={kr.status} />
                   </div>
-                </div>
-
+                  </>
+                }
+              >
                 <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_190px_120px_130px_74px]">
                   <span>TASK</span>
                   <span>OWNER</span>
@@ -276,7 +287,7 @@ export default async function BoardPage({
                     </div>
                   );
                 })}
-              </div>
+              </KeyResultAccordion>
             );
           })}
         </div>
