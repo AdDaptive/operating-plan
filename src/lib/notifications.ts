@@ -4,10 +4,13 @@ import {
   getObjectiveById,
   getUserById,
   type KeyResultRow,
+  type MeetingAgendaRow,
   type TaskRow,
   type UserRow,
 } from "@/lib/db";
 import { STATUS_META } from "@/lib/status";
+import { PRIORITY_META } from "@/lib/priority";
+import type { AgendaKeyResultSection } from "@/lib/meetingAgenda";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
 import type { SendResult } from "@/lib/notifiers/email";
@@ -277,4 +280,74 @@ export async function sendPasswordResetEmail(user: UserRow): Promise<SendResult>
     intro: "Someone (hopefully you) requested a password reset for your AdDaptive OS account.",
     cta: "Reset your password",
   });
+}
+/**
+ * Emails every attendee of a just-created meeting agenda (see POST
+ * /api/meeting-agendas) a summary plus a link to the live /agenda/[id]
+ * page. Sent once per attendee so each email is personally addressed;
+ * the content itself isn't personalized beyond that -- every attendee
+ * sees the same agenda. Never throws, same failure-isolation convention
+ * as every other notifier here -- a broken/misconfigured SMTP setup
+ * should never fail the agenda-creation request itself.
+ */
+export async function sendMeetingAgendaEmail(
+  agenda: MeetingAgendaRow,
+  attendees: UserRow[],
+  sections: AgendaKeyResultSection[]
+): Promise<void> {
+  try {
+    const dateLabel = format(new Date(agenda.meetingDate), "EEEE, MMMM d, yyyy");
+    const agendaUrl = `${baseUrl()}/agenda/${agenda.id}`;
+    const subject = `Meeting agenda: ${dateLabel}`;
+    const attendeeNames = attendees.map((a) => a.name).join(", ");
+
+    const textSections = sections.length
+      ? sections
+          .map((s) => {
+            const lines = s.tasks.length
+              ? s.tasks
+                  .map((t) => {
+                    const dueLabel = format(new Date(t.dueDate), "MMM d, yyyy");
+                    const priorityLabel = t.priority ? `, ${PRIORITY_META[t.priority].label}` : "";
+                    return `  - ${t.title} (${t.owner.name}, due ${dueLabel}, ${STATUS_META[t.status].label}${priorityLabel})`;
+                  })
+                  .join("\n")
+              : "  (no matching tasks yet)";
+            return `${s.objectiveTitle} / ${s.keyResultTitle}
+${lines}`;
+          })
+          .join("\n\n")
+      : "(nothing to review yet for the selected attendees)";
+
+    const text =
+      `Meeting agenda for ${dateLabel}
+
+` +
+      `Attendees: ${attendeeNames}
+
+` +
+      `${textSections}
+
+` +
+      `View the full, up-to-date agenda: ${agendaUrl}`;
+
+    const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:24px;">
+      <p style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:#98A2B3;margin:0 0 4px;">MEETING AGENDA</p>
+      <h2 style="font-size:18px;margin:0 0 10px;">${escapeHtml(dateLabel)}</h2>
+      <p style="font-size:13px;color:#667085;margin:0 0 18px;">Attendees: ${escapeHtml(attendeeNames)}</p>
+      <a href="${agendaUrl}" style="display:inline-block;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
+        View full agenda
+      </a>
+      <p style="font-size:12px;color:#98A2B3;margin:18px 0 0;">This link always shows the latest data, right up to the meeting.</p>
+    </div>
+  </body>
+</html>`;
+
+    await Promise.all(attendees.map((a) => sendDigestEmail(a.email, subject, html, text)));
+  } catch (err) {
+    console.error("[meeting-agenda email] failed:", err);
+  }
 }

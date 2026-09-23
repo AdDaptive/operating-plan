@@ -11,8 +11,10 @@ import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
 import PersonFilter from "@/components/PersonFilter";
+import PriorityFilter from "@/components/PriorityFilter";
 import KeyResultAccordion from "@/components/KeyResultAccordion";
 import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
+import CreateMeetingAgendaButton from "@/components/CreateMeetingAgendaButton";
 
 /**
  * Every key result across every objective, each with the tasks that fall
@@ -25,26 +27,32 @@ import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
 export default async function KeyResultsPage({
   searchParams,
 }: {
-  searchParams?: { person?: string };
+  searchParams?: { person?: string; priority?: string };
 }) {
   const [objectives, allUsers] = await Promise.all([getObjectivesFull(), listUsers()]);
   const users = allUsers.map((u) => ({ id: u.id, name: u.name }));
 
   // Filtering down to one person's tasks (owner or delegated sub-owner,
-  // same "counts for both" convention as Home's myTasks filter) happens
-  // here, before any of the grouping/counting below -- a key result with
-  // no tasks left for the selected person is dropped entirely, and so is
-  // an objective left with no key results, so the filtered page only
-  // shows what that person actually has something in.
+  // same "counts for both" convention as Home's myTasks filter), and/or
+  // down to one priority level, happens here, before any of the
+  // grouping/counting below -- the two filters AND together. A key
+  // result with no tasks left after both are applied is dropped
+  // entirely, and so is an objective left with no key results, so the
+  // filtered page only shows what actually matches.
   const personFilter = searchParams?.person ?? "";
-  const objectivesFiltered = personFilter
+  const priorityFilter = searchParams?.priority ?? "";
+  const objectivesFiltered = personFilter || priorityFilter
     ? objectives
         .map((o) => ({
           ...o,
           keyResults: o.keyResults
             .map((kr) => ({
               ...kr,
-              tasks: kr.tasks.filter((t) => t.ownerId === personFilter || t.subOwnerId === personFilter),
+              tasks: kr.tasks.filter((t) => {
+                const personMatch = !personFilter || t.ownerId === personFilter || t.subOwnerId === personFilter;
+                const priorityMatch = !priorityFilter || t.priority === priorityFilter;
+                return personMatch && priorityMatch;
+              }),
             }))
             .filter((kr) => kr.tasks.length > 0),
         }))
@@ -71,8 +79,19 @@ export default async function KeyResultsPage({
             {objectivesWithKeyResults.length} objective{objectivesWithKeyResults.length === 1 ? "" : "s"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <PersonFilter users={users} current={personFilter} basePath="/key-results" />
+        <div className="flex flex-wrap items-center gap-2">
+          <PersonFilter
+            users={users}
+            current={personFilter}
+            basePath="/key-results"
+            extraParams={priorityFilter ? { priority: priorityFilter } : {}}
+          />
+          <PriorityFilter
+            current={priorityFilter}
+            basePath="/key-results"
+            extraParams={personFilter ? { person: personFilter } : {}}
+          />
+          <CreateMeetingAgendaButton users={users} />
           {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} />}
         </div>
       </div>
@@ -81,11 +100,11 @@ export default async function KeyResultsPage({
         {objectivesWithKeyResults.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white py-20 text-center">
             <p className="font-display text-[16px] font-bold text-ink">
-              {personFilter ? "No tasks for this person" : "No key results yet"}
+              {personFilter || priorityFilter ? "No matching tasks" : "No key results yet"}
             </p>
             <p className="max-w-sm text-[13px] text-ink-secondary">
-              {personFilter
-                ? "They aren't the owner or sub-owner of any task yet."
+              {personFilter || priorityFilter
+                ? "No task matches this filter combination yet."
                 : "Add a key result to an objective from its board page and it\u2019ll show up here."}
             </p>
           </div>

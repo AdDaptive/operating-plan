@@ -13,17 +13,22 @@ export default function PersonFilter({
   users,
   current,
   basePath,
+  extraParams = {},
 }: {
   users: { id: string; name: string }[];
   current: string;
   basePath: string;
+  /** Other query params (e.g. an active priority filter) to preserve when this one changes. */
+  extraParams?: Record<string, string>;
 }) {
   const router = useRouter();
   const sortedUsers = [...users].sort((a, b) => a.name.localeCompare(b.name));
 
   function onChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = e.target.value;
-    router.push(value ? `${basePath}?person=${value}` : basePath);
+    const params = new URLSearchParams(extraParams);
+    if (e.target.value) params.set("person", e.target.value);
+    const qs = params.toString();
+    router.push(qs ? `${basePath}?${qs}` : basePath);
   }
 
   return (

@@ -230,6 +230,22 @@ async function ensureSchema(): Promise<void> {
       "changedAt" TEXT NOT NULL
     );
 
+    -- "Create Meeting Agenda" snapshots of who's attending and when -- the
+    -- actual agenda content (which key results/tasks show up) is always
+    -- computed live from current data when the page is viewed or the email
+    -- is sent (see buildMeetingAgendaSections in src/lib/meetingAgenda.ts),
+    -- not frozen here; this row only remembers the attendee list and date
+    -- so the emailed link keeps working. No FK on the ids inside
+    -- "attendeeIds" (Postgres arrays can't reference a column) -- a stale
+    -- id is simply skipped wherever attendees are looked back up.
+    CREATE TABLE IF NOT EXISTS meeting_agendas (
+      id TEXT PRIMARY KEY,
+      "meetingDate" TEXT NOT NULL,
+      "attendeeIds" TEXT[] NOT NULL,
+      "createdById" TEXT REFERENCES users(id) ON DELETE SET NULL,
+      "createdAt" TEXT NOT NULL
+    );
+
     -- Migration from the original quarter / current-target-unit schema to
     -- due dates on objectives and a manual status + due date on key
     -- results. IF NOT EXISTS / IF EXISTS make this safe to run every time,
@@ -970,11 +986,46 @@ export async function listTasksWithActivityStatus(): Promise<TaskWithActivitySta
   });
 }
 
+// ---------- Meeting agendas ----------
+
+export type MeetingAgendaRow = {
+  id: string;
+  meetingDate: string;
+  /** User ids selected as attendees at creation time. See the table's own comment in ensureSchema for why there's no FK here. */
+  attendeeIds: string[];
+  createdById: string | null;
+  createdAt: string;
+};
+
+export async function createMeetingAgenda(data: {
+  meetingDate: string;
+  attendeeIds: string[];
+  createdById: string | null;
+}): Promise<MeetingAgendaRow> {
+  const row: MeetingAgendaRow = {
+    id: newId("agenda"),
+    meetingDate: data.meetingDate,
+    attendeeIds: data.attendeeIds,
+    createdById: data.createdById,
+    createdAt: new Date().toISOString(),
+  };
+  await query(
+    'INSERT INTO meeting_agendas (id, "meetingDate", "attendeeIds", "createdById", "createdAt") VALUES ($1, $2, $3, $4, $5)',
+    [row.id, row.meetingDate, row.attendeeIds, row.createdById, row.createdAt]
+  );
+  return row;
+}
+
+export async function getMeetingAgendaById(id: string): Promise<MeetingAgendaRow | undefined> {
+  return queryOne<MeetingAgendaRow>("SELECT * FROM meeting_agendas WHERE id = $1", [id]);
+}
+
 /** Wipes all rows (dev/seed convenience) -- keeps the schema. */
 export async function resetAllData(): Promise<void> {
   await query("DELETE FROM digest_logs");
   await query("DELETE FROM reminder_logs");
   await query("DELETE FROM task_activity");
+  await query("DELETE FROM meeting_agendas");
   await query("DELETE FROM tasks");
   await query("DELETE FROM key_results");
   await query("DELETE FROM objectives");
