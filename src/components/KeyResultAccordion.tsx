@@ -9,8 +9,8 @@ import { useState, type ReactNode } from "react";
  * rendered exactly where it always was -- only a dedicated chevron button is
  * the toggle target, so clicks on the edit button or other header controls
  * never get swallowed by the accordion. `children` (the task table) is only
- * rendered while open. Defaults to open so nothing changes visually on
- * first load; the user collapses what they don't need.
+ * rendered while open. Defaults to collapsed -- every card loads closed and
+ * the user expands the ones they want to work in.
  *
  * The chevron sits immediately to the left of the key result's own title
  * block (not off at the far right of the card, near the progress bar/status
@@ -22,7 +22,7 @@ import { useState, type ReactNode } from "react";
 export default function KeyResultAccordion({
   header,
   taskCount,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
 }: {
   header: ReactNode;
