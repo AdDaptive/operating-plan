@@ -36,18 +36,24 @@ export default async function ActivityPage({
 
   const personFilter = searchParams?.person ?? "";
 
-  // Most-stale-first: never-changed tasks lead, then the longest-untouched
-  // yellow tasks, then green tasks -- the point of this list is to surface
-  // what's gone stale, not to read chronologically. The person filter (when
-  // set) narrows this to tasks that person owns or is a delegated sub-owner
-  // of, same "counts for both" convention as Home's myTasks filter.
+  // Most-recently-changed-first: recently changed (green) tasks lead, then
+  // changed-but-not-recent (yellow) tasks, then never-changed (red) tasks
+  // last. Since green vs. yellow is purely a function of how recent
+  // lastChangedAt is, sorting by lastChangedAt descending produces exactly
+  // this three-tier grouping on its own -- every green task sorts ahead of
+  // every yellow task (both ordered most-recent-first within their tier),
+  // and every never-changed task (lastChangedAt: null, treated as
+  // -Infinity) sorts dead last, since nothing is smaller. The person filter
+  // (when set) narrows this to tasks that person owns or is a delegated
+  // sub-owner of, same "counts for both" convention as Home's myTasks
+  // filter.
   const tasksFiltered = personFilter
     ? tasks.filter((t) => t.ownerId === personFilter || t.subOwnerId === personFilter)
     : tasks;
   const tasksByFreshness = [...tasksFiltered].sort((a, b) => {
     const aTime = a.lastChangedAt ? new Date(a.lastChangedAt).getTime() : -Infinity;
     const bTime = b.lastChangedAt ? new Date(b.lastChangedAt).getTime() : -Infinity;
-    return aTime - bTime;
+    return bTime - aTime;
   });
 
   // The recent-changes feed has no task-owner info attached to each row
@@ -107,7 +113,7 @@ export default async function ActivityPage({
                 return (
                   <Link
                     key={t.id}
-                    href={t.objectiveId ? `/board/${t.objectiveId}` : "/activity"}
+                    href={t.objectiveId ? `/board/${t.objectiveId}?editTask=${t.id}` : "/activity"}
                     className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.3fr_1.1fr_140px_120px_170px] md:items-center md:gap-3"
                   >
                     <div className="flex min-w-0 items-center gap-2">
@@ -183,7 +189,7 @@ export default async function ActivityPage({
               {activityFiltered.map((a) => (
                 <Link
                   key={a.id}
-                  href={a.objectiveId ? `/board/${a.objectiveId}` : "/activity"}
+                  href={a.objectiveId ? `/board/${a.objectiveId}?editTask=${a.taskId}` : "/activity"}
                   className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.2fr_100px_1.6fr_140px_120px] md:items-center md:gap-3"
                 >
                   <div className="min-w-0">

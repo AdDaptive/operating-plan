@@ -21,10 +21,16 @@ export default async function BoardPage({
   searchParams,
 }: {
   params: { objectiveId: string };
-  searchParams?: { person?: string };
+  searchParams?: { person?: string; editTask?: string };
 }) {
   const objective = await getObjectiveFull(params.objectiveId);
   if (!objective) notFound();
+
+  // Set when a link (e.g. from the Activity page) wants this page to land
+  // directly in a specific task's edit modal rather than just the board --
+  // matched against each task's id below and passed through as TaskModal's
+  // autoOpen prop.
+  const editTaskId = searchParams?.editTask ?? "";
 
   const users = (await listUsers()).map((u) => ({ id: u.id, name: u.name }));
   const overallProgress = objectiveProgress(objective.keyResults);
@@ -251,6 +257,7 @@ export default async function BoardPage({
                         <TaskModal
                           keyResults={allKeyResults}
                           users={users}
+                          autoOpen={task.id === editTaskId}
                           existing={{
                             id: task.id,
                             title: task.title,

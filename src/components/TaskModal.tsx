@@ -36,13 +36,21 @@ export default function TaskModal({
   keyResults,
   users,
   existing,
+  autoOpen = false,
 }: {
   keyResults: { id: string; title: string }[];
   users: { id: string; name: string }[];
   existing?: Existing;
+  // Opens the modal immediately on mount -- used when linking in from a
+  // page (e.g. Activity) that wants to land directly in edit mode for one
+  // specific task, via a `?editTask=<id>` query param the caller reads and
+  // matches against `existing.id`. The param is stripped from the URL as
+  // soon as the modal closes (see closeModal below), so navigating back or
+  // refreshing afterward doesn't keep reopening it.
+  autoOpen?: boolean;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [title, setTitle] = useState(existing?.title ?? "");
   const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
@@ -104,6 +112,17 @@ export default function TaskModal({
     router.refresh();
   }
 
+  function closeModal() {
+    setOpen(false);
+    if (autoOpen) {
+      // Drop ?editTask=... from the URL so a refresh or back-navigation
+      // doesn't reopen this same task's modal again.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("editTask");
+      router.replace(`${url.pathname}${url.search}`);
+    }
+  }
+
   return (
     <>
       {existing ? (
@@ -129,7 +148,7 @@ export default function TaskModal({
           New Task
         </button>
       )}
-      <Modal open={open} onClose={() => setOpen(false)} title={existing ? "Edit task" : "New task"}>
+      <Modal open={open} onClose={closeModal} title={existing ? "Edit task" : "New task"}>
         <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
           <Field label="Task">
             <input
