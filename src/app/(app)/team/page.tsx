@@ -7,6 +7,7 @@ import RunDigestButton from "@/components/RunDigestButton";
 import TeamMemberDigestActions from "@/components/TeamMemberDigestActions";
 import InviteUserModal from "@/components/InviteUserModal";
 import ResendInviteButton from "@/components/ResendInviteButton";
+import ManagerSelect from "@/components/ManagerSelect";
 
 export default async function TeamPage() {
   const session = await getServerSession(authOptions);
@@ -30,6 +31,7 @@ export default async function TeamPage() {
       id: u.id,
       name: u.name,
       email: u.email,
+      managerId: u.managerId,
       managerName: manager?.name ?? null,
       totalTasks: tasks.length,
       openTasks,
@@ -102,9 +104,17 @@ export default async function TeamPage() {
                   <div className="truncate text-[11.5px] text-ink-tertiary">{r.email}</div>
                 </div>
               </div>
-              <div className="truncate text-[13px] text-ink-secondary">
+              <div className="min-w-0 text-[13px] text-ink-secondary">
                 <span className="font-semibold text-ink-tertiary md:hidden">Reports to: </span>
-                {r.managerName ?? "—"}
+                {isAdmin ? (
+                  <ManagerSelect
+                    userId={r.id}
+                    currentManagerId={r.managerId}
+                    options={users.map((u) => ({ id: u.id, name: u.name }))}
+                  />
+                ) : (
+                  r.managerName ?? "—"
+                )}
               </div>
               <div className="text-[13.5px] font-semibold text-ink">
                 <span className="font-semibold text-ink-tertiary md:hidden">Open tasks: </span>

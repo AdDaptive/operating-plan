@@ -484,6 +484,26 @@ export async function regenerateInviteToken(
   return { inviteToken, inviteTokenExpiresAt };
 }
 
+/**
+ * Updates a person's `managerId` from the Team page (PATCH
+ * /api/users/[id], admin-only -- see that route). Only `managerId` is
+ * accepted today, not name/email/isAdmin -- those still have no edit UI
+ * anywhere in the app. `mergeDefined` here is mostly future-proofing (this
+ * function currently only ever gets called with `managerId`) but keeps the
+ * same "undefined leaves the field alone, explicit null clears it"
+ * convention every other PATCH in this file already follows.
+ */
+export async function updateUser(
+  id: string,
+  patch: Partial<Pick<UserRow, "managerId">>
+): Promise<UserRow | undefined> {
+  const existing = await getUserById(id);
+  if (!existing) return undefined;
+  const next = mergeDefined<UserRow>(existing, patch);
+  await query('UPDATE users SET "managerId" = $1 WHERE id = $2', [next.managerId, id]);
+  return next;
+}
+
 // ---------- Objectives ----------
 
 export async function listObjectives(): Promise<ObjectiveRow[]> {
