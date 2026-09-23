@@ -14,6 +14,7 @@ import KeyResultModal from "@/components/KeyResultModal";
 import ObjectiveModal from "@/components/ObjectiveModal";
 import DeleteObjectiveButton from "@/components/DeleteObjectiveButton";
 import PersonFilter from "@/components/PersonFilter";
+import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
 
 export default async function BoardPage({
   params,
@@ -152,6 +153,7 @@ export default async function BoardPage({
                         ownerId: kr.ownerId ?? "",
                       }}
                     />
+                    <DeleteKeyResultButton keyResultId={kr.id} taskCount={kr.tasks.length} />
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="h-1.5 w-[70px] overflow-hidden rounded-full bg-[#EEF0F3] md:w-[120px]">

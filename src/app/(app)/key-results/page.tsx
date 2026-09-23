@@ -12,6 +12,7 @@ import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
 import PersonFilter from "@/components/PersonFilter";
 import KeyResultAccordion from "@/components/KeyResultAccordion";
+import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
 
 /**
  * Every key result across every objective, each with the tasks that fall
@@ -156,6 +157,7 @@ export default async function KeyResultsPage({
                                     ownerId: kr.ownerId ?? "",
                                   }}
                                 />
+                                <DeleteKeyResultButton keyResultId={kr.id} taskCount={kr.tasks.length} />
                               </div>
                               <div className="flex items-center gap-2.5">
                                 <div className="h-1.5 w-[70px] overflow-hidden rounded-full bg-[#EEF0F3] md:w-[120px]">
