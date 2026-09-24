@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { PermissionLevel } from "@/lib/db";
+import { LEVEL_ORDER, LEVEL_META } from "@/lib/permissions";
 
 type Props = {
   /** Existing accounts, for the optional "reports to" dropdown. */
@@ -20,6 +22,7 @@ export default function InviteUserModal({ users }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [managerId, setManagerId] = useState("");
+  const [level, setLevel] = useState<PermissionLevel>("EMPLOYEE");
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -29,6 +32,7 @@ export default function InviteUserModal({ users }: Props) {
     setName("");
     setEmail("");
     setManagerId("");
+    setLevel("EMPLOYEE");
     setIsAdmin(false);
     setError(null);
     setResult(null);
@@ -43,7 +47,7 @@ export default function InviteUserModal({ users }: Props) {
     const res = await fetch("/api/admin/invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, managerId: managerId || undefined, isAdmin }),
+      body: JSON.stringify({ name, email, managerId: managerId || undefined, isAdmin, level }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -61,6 +65,7 @@ export default function InviteUserModal({ users }: Props) {
     setName("");
     setEmail("");
     setManagerId("");
+    setLevel("EMPLOYEE");
     setIsAdmin(false);
     router.refresh();
   }
@@ -138,6 +143,27 @@ export default function InviteUserModal({ users }: Props) {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label htmlFor="invite-level" className="mb-1.5 block text-[13px] font-semibold text-[#344054]">
+                  Level
+                </label>
+                <select
+                  id="invite-level"
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value as PermissionLevel)}
+                  className="w-full rounded-lg border border-[#D0D5DD] bg-white px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                >
+                  {LEVEL_ORDER.map((l) => (
+                    <option key={l} value={l}>
+                      {LEVEL_META[l].label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11.5px] text-ink-tertiary">
+                  Decides which objectives, key results, and tasks they can see -- editable later
+                  from this Team page.
+                </p>
               </div>
               <label className="flex items-center gap-2 text-[13px] text-ink-secondary">
                 <input

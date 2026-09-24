@@ -8,6 +8,8 @@ import TeamMemberDigestActions from "@/components/TeamMemberDigestActions";
 import InviteUserModal from "@/components/InviteUserModal";
 import ResendInviteButton from "@/components/ResendInviteButton";
 import ManagerSelect from "@/components/ManagerSelect";
+import UserLevelSelect from "@/components/UserLevelSelect";
+import { LEVEL_META } from "@/lib/permissions";
 
 export default async function TeamPage() {
   const session = await getServerSession(authOptions);
@@ -33,6 +35,7 @@ export default async function TeamPage() {
       email: u.email,
       managerId: u.managerId,
       managerName: manager?.name ?? null,
+      level: u.level,
       totalTasks: tasks.length,
       openTasks,
       overdueTasks,
@@ -67,9 +70,10 @@ export default async function TeamPage() {
           </p>
         )}
         <div className="overflow-hidden rounded-card border border-line bg-white">
-          <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1fr_100px_100px_90px_210px]">
+          <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.2fr_1fr_140px_90px_90px_80px_190px]">
             <span>PERSON</span>
             <span>REPORTS TO</span>
+            <span>LEVEL</span>
             <span>OPEN TASKS</span>
             <span>OVERDUE</span>
             <span>TOTAL</span>
@@ -78,7 +82,7 @@ export default async function TeamPage() {
           {rows.map((r) => (
             <div
               key={r.id}
-              className="flex flex-col gap-2 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1.3fr_1fr_100px_100px_90px_210px] md:items-center md:gap-3"
+              className="flex flex-col gap-2 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1.2fr_1fr_140px_90px_90px_80px_190px] md:items-center md:gap-3"
             >
               <div className="flex min-w-0 items-center gap-2.5">
                 <div
@@ -114,6 +118,19 @@ export default async function TeamPage() {
                   />
                 ) : (
                   r.managerName ?? "—"
+                )}
+              </div>
+              <div className="min-w-0 text-[13px] text-ink-secondary">
+                <span className="font-semibold text-ink-tertiary md:hidden">Level: </span>
+                {isAdmin ? (
+                  <UserLevelSelect userId={r.id} currentLevel={r.level} />
+                ) : (
+                  <span
+                    className="rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+                    style={{ background: LEVEL_META[r.level].bg, color: LEVEL_META[r.level].text }}
+                  >
+                    {LEVEL_META[r.level].label}
+                  </span>
                 )}
               </div>
               <div className="text-[13.5px] font-semibold text-ink">

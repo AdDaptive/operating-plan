@@ -1,12 +1,25 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { getObjectivesFull } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getObjectivesFull, getUserById } from "@/lib/db";
 import { objectiveProgress } from "@/lib/rollup";
 import { STATUS_ORDER, STATUS_META, isOverdue } from "@/lib/status";
+import { viewerFrom, visibleObjectives } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 
 export default async function ReportsPage() {
-  const objectives = await getObjectivesFull();
+  const session = await getServerSession(authOptions);
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+
+  const [allObjectivesFull, currentUser] = await Promise.all([
+    getObjectivesFull(),
+    sessionUserId ? getUserById(sessionUserId) : Promise.resolve(undefined),
+  ]);
+  // Every count/list on this page (status counts, objective progress,
+  // overdue tasks) is derived from this already-level-filtered list -- see
+  // visibleObjectives in src/lib/permissions.ts.
+  const objectives = visibleObjectives(allObjectivesFull, viewerFrom(currentUser));
   const allTasks = objectives.flatMap((o) => o.keyResults.flatMap((kr) => kr.tasks));
 
   const statusCounts = STATUS_ORDER.reduce<Record<string, number>>((acc, s) => {

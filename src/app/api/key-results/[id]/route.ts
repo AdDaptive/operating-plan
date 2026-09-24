@@ -8,7 +8,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { title, dueDate, ownerId } = body ?? {};
+  const { title, dueDate, ownerId, level } = body ?? {};
 
   if (dueDate) {
     const existing = await getKeyResultById(params.id);
@@ -27,6 +27,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     title,
     dueDate,
     ownerId: ownerId === undefined ? undefined : ownerId || null,
+    level,
   });
   if (!keyResult) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(keyResult);

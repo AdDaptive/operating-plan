@@ -25,6 +25,18 @@ export type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "ON_TRACK" | "AT_RISK" 
  */
 export type TaskPriority = "URGENT_IMPORTANT" | "URGENT_NOT_IMPORTANT" | "IMPORTANT_NOT_URGENT";
 
+/**
+ * Three-tier visibility level, settable independently on every user
+ * account and every objective/key result/task (see src/lib/permissions.ts
+ * for the hierarchy -- Senior Leadership sees everything, Manager sees
+ * Manager + Employee, Employee sees only Employee -- and for the filtering
+ * helpers built on top of this). Defaults to "EMPLOYEE" everywhere it's
+ * stored, which under that hierarchy is the most-visible default (every
+ * level can see Employee-tagged content), so adding this column to
+ * existing rows doesn't hide anything that was visible before.
+ */
+export type PermissionLevel = "SENIOR_LEADERSHIP" | "MANAGER" | "EMPLOYEE";
+
 export type UserRow = {
   id: string;
   name: string;
@@ -34,6 +46,8 @@ export type UserRow = {
   managerId: string | null;
   /** Admins can invite new accounts (see createInvitedUser) and set isAdmin on invite. */
   isAdmin: boolean;
+  /** This person's own visibility level -- admin-settable only (Team page), see updateUser. */
+  level: PermissionLevel;
   /** Set while an invite is pending; cleared once the person sets their password. */
   inviteToken: string | null;
   inviteTokenExpiresAt: string | null;
@@ -45,6 +59,8 @@ export type ObjectiveRow = {
   title: string;
   team: string | null;
   dueDate: string | null;
+  /** Who can see this objective (and, by default, its key results/tasks -- see visibleObjectives). Editable by anyone, like every other objective field. */
+  level: PermissionLevel;
   createdAt: string;
 };
 
@@ -55,6 +71,8 @@ export type KeyResultRow = {
   dueDate: string | null;
   ownerId: string | null;
   objectiveId: string;
+  /** Who can see this key result (and its tasks) -- see the objective-level doc comment above. */
+  level: PermissionLevel;
   createdAt: string;
 };
 
@@ -70,6 +88,8 @@ export type TaskRow = {
   /** Eisenhower urgency/importance classification -- see TaskPriority. Null = unclassified. */
   priority: TaskPriority | null;
   keyResultId: string;
+  /** Who can see this task -- see the objective-level doc comment above. */
+  level: PermissionLevel;
   /** Longer description of what the task actually involves. */
   description: string | null;
   /** Freeform status updates the owner keeps for themselves/others -- distinct from `description`. */
@@ -274,6 +294,19 @@ async function ensureSchema(): Promise<void> {
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "subOwnerId" TEXT REFERENCES users(id);
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT;
 
+    -- Permission levels (Senior Leadership / Manager / Employee): one on
+    -- every user account (who they are) and one on every objective, key
+    -- result, and task (who can see it) -- see PermissionLevel's doc
+    -- comment above and src/lib/permissions.ts for the hierarchy this
+    -- backs. "EMPLOYEE" is the default everywhere, which under that
+    -- hierarchy is what everyone (at every level) can already see, so
+    -- backfilling existing rows with it doesn't hide anything that used
+    -- to be visible.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
+    ALTER TABLE objectives ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
+
     -- "Off Track" was removed as a status option. Re-map any existing rows
     -- (tasks, and the vestigial key_results.status column) to At Risk, the
     -- next most severe remaining active status. A plain UPDATE with no
@@ -380,6 +413,7 @@ async function insertUser(data: {
   passwordHash: string | null;
   managerId?: string | null;
   isAdmin?: boolean;
+  level?: PermissionLevel;
   inviteToken?: string | null;
   inviteTokenExpiresAt?: string | null;
 }): Promise<UserRow> {
@@ -390,14 +424,15 @@ async function insertUser(data: {
     passwordHash: data.passwordHash,
     managerId: data.managerId ?? null,
     isAdmin: data.isAdmin ?? false,
+    level: data.level ?? "EMPLOYEE",
     inviteToken: data.inviteToken ?? null,
     inviteTokenExpiresAt: data.inviteTokenExpiresAt ?? null,
     createdAt: nowIso(),
   };
   await query(
     `INSERT INTO users
-      (id, name, email, "passwordHash", "managerId", "isAdmin", "inviteToken", "inviteTokenExpiresAt", "createdAt")
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      (id, name, email, "passwordHash", "managerId", "isAdmin", level, "inviteToken", "inviteTokenExpiresAt", "createdAt")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
     [
       row.id,
       row.name,
@@ -405,6 +440,7 @@ async function insertUser(data: {
       row.passwordHash,
       row.managerId,
       row.isAdmin,
+      row.level,
       row.inviteToken,
       row.inviteTokenExpiresAt,
       row.createdAt,
@@ -420,6 +456,7 @@ export async function createUser(data: {
   passwordHash: string;
   managerId?: string | null;
   isAdmin?: boolean;
+  level?: PermissionLevel;
 }): Promise<UserRow> {
   return insertUser(data);
 }
@@ -442,6 +479,7 @@ export async function createInvitedUser(data: {
   email: string;
   managerId?: string | null;
   isAdmin?: boolean;
+  level?: PermissionLevel;
 }): Promise<UserRow> {
   return insertUser({
     ...data,
@@ -495,12 +533,16 @@ export async function regenerateInviteToken(
  */
 export async function updateUser(
   id: string,
-  patch: Partial<Pick<UserRow, "managerId">>
+  patch: Partial<Pick<UserRow, "managerId" | "level">>
 ): Promise<UserRow | undefined> {
   const existing = await getUserById(id);
   if (!existing) return undefined;
   const next = mergeDefined<UserRow>(existing, patch);
-  await query('UPDATE users SET "managerId" = $1 WHERE id = $2', [next.managerId, id]);
+  await query('UPDATE users SET "managerId" = $1, level = $2 WHERE id = $3', [
+    next.managerId,
+    next.level,
+    id,
+  ]);
   return next;
 }
 
@@ -518,32 +560,35 @@ export async function createObjective(data: {
   title: string;
   team?: string | null;
   dueDate?: string | null;
+  level?: PermissionLevel;
 }): Promise<ObjectiveRow> {
   const row: ObjectiveRow = {
     id: newId("obj"),
     title: data.title,
     team: data.team ?? null,
     dueDate: data.dueDate ?? null,
+    level: data.level ?? "EMPLOYEE",
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO objectives (id, title, team, "dueDate", "createdAt") VALUES ($1, $2, $3, $4, $5)',
-    [row.id, row.title, row.team, row.dueDate, row.createdAt]
+    'INSERT INTO objectives (id, title, team, "dueDate", level, "createdAt") VALUES ($1, $2, $3, $4, $5, $6)',
+    [row.id, row.title, row.team, row.dueDate, row.level, row.createdAt]
   );
   return row;
 }
 
 export async function updateObjective(
   id: string,
-  patch: Partial<Pick<ObjectiveRow, "title" | "team" | "dueDate">>
+  patch: Partial<Pick<ObjectiveRow, "title" | "team" | "dueDate" | "level">>
 ): Promise<ObjectiveRow | undefined> {
   const existing = await getObjectiveById(id);
   if (!existing) return undefined;
   const next = mergeDefined<ObjectiveRow>(existing, patch);
-  await query('UPDATE objectives SET title = $1, team = $2, "dueDate" = $3 WHERE id = $4', [
+  await query('UPDATE objectives SET title = $1, team = $2, "dueDate" = $3, level = $4 WHERE id = $5', [
     next.title,
     next.team,
     next.dueDate,
+    next.level,
     id,
   ]);
   return next;
@@ -571,6 +616,7 @@ export async function createKeyResult(data: {
   dueDate?: string | null;
   ownerId?: string | null;
   objectiveId: string;
+  level?: PermissionLevel;
 }): Promise<KeyResultRow> {
   const row: KeyResultRow = {
     id: newId("kr"),
@@ -584,25 +630,26 @@ export async function createKeyResult(data: {
     dueDate: data.dueDate ?? null,
     ownerId: data.ownerId ?? null,
     objectiveId: data.objectiveId,
+    level: data.level ?? "EMPLOYEE",
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO key_results (id, title, status, "dueDate", "ownerId", "objectiveId", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
-    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.objectiveId, row.createdAt]
+    'INSERT INTO key_results (id, title, status, "dueDate", "ownerId", "objectiveId", level, "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.objectiveId, row.level, row.createdAt]
   );
   return row;
 }
 
 export async function updateKeyResult(
   id: string,
-  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId">>
+  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId" | "level">>
 ): Promise<KeyResultRow | undefined> {
   const existing = await getKeyResultById(id);
   if (!existing) return undefined;
   const next = mergeDefined<KeyResultRow>(existing, patch);
   await query(
-    'UPDATE key_results SET title = $1, "dueDate" = $2, "ownerId" = $3 WHERE id = $4',
-    [next.title, next.dueDate, next.ownerId, id]
+    'UPDATE key_results SET title = $1, "dueDate" = $2, "ownerId" = $3, level = $4 WHERE id = $5',
+    [next.title, next.dueDate, next.ownerId, next.level, id]
   );
   return next;
 }
@@ -625,6 +672,7 @@ export async function createTask(data: {
   subOwnerId?: string | null;
   /** Optional Eisenhower urgency/importance classification. */
   priority?: TaskPriority | null;
+  level?: PermissionLevel;
 }): Promise<TaskRow> {
   const now = nowIso();
   const row: TaskRow = {
@@ -636,14 +684,15 @@ export async function createTask(data: {
     subOwnerId: data.subOwnerId ?? null,
     priority: data.priority ?? null,
     keyResultId: data.keyResultId,
+    level: data.level ?? "EMPLOYEE",
     description: data.description ?? null,
     notes: data.notes ?? null,
     createdAt: now,
     updatedAt: now,
   };
   await query(
-    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "subOwnerId", priority, "keyResultId", description, notes, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
-    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.subOwnerId, row.priority, row.keyResultId, row.description, row.notes, row.createdAt, row.updatedAt]
+    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "subOwnerId", priority, "keyResultId", level, description, notes, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.subOwnerId, row.priority, row.keyResultId, row.level, row.description, row.notes, row.createdAt, row.updatedAt]
   );
   return row;
 }
@@ -681,6 +730,7 @@ export async function updateTask(
       | "subOwnerId"
       | "priority"
       | "keyResultId"
+      | "level"
       | "description"
       | "notes"
     >
@@ -697,7 +747,7 @@ export async function updateTask(
     updatedAt: nowIso(),
   };
   await query(
-    'UPDATE tasks SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4, "subOwnerId" = $5, priority = $6, "keyResultId" = $7, description = $8, notes = $9, "updatedAt" = $10 WHERE id = $11',
+    'UPDATE tasks SET title = $1, status = $2, "dueDate" = $3, "ownerId" = $4, "subOwnerId" = $5, priority = $6, "keyResultId" = $7, level = $8, description = $9, notes = $10, "updatedAt" = $11 WHERE id = $12',
     [
       next.title,
       next.status,
@@ -706,6 +756,7 @@ export async function updateTask(
       next.subOwnerId,
       next.priority,
       next.keyResultId,
+      next.level,
       next.description,
       next.notes,
       next.updatedAt,
@@ -925,9 +976,12 @@ export async function listTaskActivityForTask(taskId: string): Promise<TaskActiv
 export type TaskActivityFull = TaskActivityRow & {
   changedBy: UserRow | null;
   taskTitle: string;
+  taskLevel: PermissionLevel | null;
   keyResultTitle: string;
+  keyResultLevel: PermissionLevel | null;
   objectiveId: string;
   objectiveTitle: string;
+  objectiveLevel: PermissionLevel | null;
 };
 
 /** Every task's change history org-wide, newest first, capped at `limit` -- backs the org-wide Activity page. */
@@ -952,9 +1006,12 @@ export async function listRecentTaskActivity(limit = 200): Promise<TaskActivityF
       ...a,
       changedBy: a.changedById ? (userById.get(a.changedById) ?? null) : null,
       taskTitle: task?.title ?? "(deleted task)",
+      taskLevel: task?.level ?? null,
       keyResultTitle: kr?.title ?? "",
+      keyResultLevel: kr?.level ?? null,
       objectiveId: objective?.id ?? "",
       objectiveTitle: objective?.title ?? "",
+      objectiveLevel: objective?.level ?? null,
     };
   });
 }
@@ -963,8 +1020,10 @@ export type TaskWithActivityStatus = TaskRow & {
   owner: UserRow | null;
   subOwner: UserRow | null;
   keyResultTitle: string;
+  keyResultLevel: PermissionLevel | null;
   objectiveId: string;
   objectiveTitle: string;
+  objectiveLevel: PermissionLevel | null;
   /** Most recent task_activity."changedAt" for this task, or null if it has never had a tracked field change. */
   lastChangedAt: string | null;
 };
@@ -999,8 +1058,10 @@ export async function listTasksWithActivityStatus(): Promise<TaskWithActivitySta
       owner: userById.get(t.ownerId) ?? null,
       subOwner: t.subOwnerId ? (userById.get(t.subOwnerId) ?? null) : null,
       keyResultTitle: kr?.title ?? "",
+      keyResultLevel: kr?.level ?? null,
       objectiveId: objective?.id ?? "",
       objectiveTitle: objective?.title ?? "",
+      objectiveLevel: objective?.level ?? null,
       lastChangedAt: lastChangedByTaskId.get(t.id) ?? null,
     };
   });

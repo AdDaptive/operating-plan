@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import type { TaskStatus, TaskActivityField } from "@/lib/db";
+import type { TaskStatus, TaskActivityField, PermissionLevel } from "@/lib/db";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
 import { STATUS_ORDER, STATUS_META } from "@/lib/status";
 import { PRIORITY_ORDER, PRIORITY_META } from "@/lib/priority";
+import { LEVEL_ORDER, LEVEL_META } from "@/lib/permissions";
 import { formatActivityValue, ACTIVITY_FIELD_LABELS } from "@/lib/activityLabel";
 
 type Existing = {
@@ -19,6 +20,7 @@ type Existing = {
   subOwnerId: string;
   priority: string;
   keyResultId: string;
+  level: PermissionLevel;
   description: string;
   notes: string;
 };
@@ -57,6 +59,7 @@ export default function TaskModal({
   const [ownerId, setOwnerId] = useState(existing?.ownerId ?? users[0]?.id ?? "");
   const [subOwnerId, setSubOwnerId] = useState(existing?.subOwnerId ?? "");
   const [priority, setPriority] = useState(existing?.priority ?? "");
+  const [level, setLevel] = useState<PermissionLevel>(existing?.level ?? "EMPLOYEE");
   const [keyResultId, setKeyResultId] = useState(existing?.keyResultId ?? keyResults[0]?.id ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
@@ -98,6 +101,7 @@ export default function TaskModal({
         subOwnerId: subOwnerId || null,
         priority: priority || null,
         keyResultId,
+        level,
         description: description || null,
         notes: notes || null,
       }),
@@ -237,6 +241,19 @@ export default function TaskModal({
               {STATUS_ORDER.map((s) => (
                 <option key={s} value={s}>
                   {STATUS_META[s].label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Who can see this">
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value as PermissionLevel)}
+              className={inputClass}
+            >
+              {LEVEL_ORDER.map((l) => (
+                <option key={l} value={l}>
+                  {LEVEL_META[l].label}
                 </option>
               ))}
             </select>

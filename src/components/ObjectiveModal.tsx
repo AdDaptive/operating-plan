@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { PermissionLevel } from "@/lib/db";
+import { LEVEL_ORDER, LEVEL_META } from "@/lib/permissions";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
 
@@ -10,6 +12,7 @@ type Existing = {
   title: string;
   team: string;
   dueDate: string;
+  level: PermissionLevel;
 };
 
 export default function ObjectiveModal({ existing }: { existing?: Existing }) {
@@ -18,6 +21,7 @@ export default function ObjectiveModal({ existing }: { existing?: Existing }) {
   const [title, setTitle] = useState(existing?.title ?? "");
   const [team, setTeam] = useState(existing?.team ?? "");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
+  const [level, setLevel] = useState<PermissionLevel>(existing?.level ?? "EMPLOYEE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +37,7 @@ export default function ObjectiveModal({ existing }: { existing?: Existing }) {
       // `team || null` (not `undefined`) so clearing the field to empty on
       // an edit actually clears it -- the PATCH route only skips a field
       // when it's `undefined`, not when it's explicitly `null`.
-      body: JSON.stringify({ title, team: team || null, dueDate }),
+      body: JSON.stringify({ title, team: team || null, dueDate, level }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -112,6 +116,19 @@ export default function ObjectiveModal({ existing }: { existing?: Existing }) {
               onChange={(e) => setDueDate(e.target.value)}
               className={inputClass}
             />
+          </Field>
+          <Field label="Who can see this">
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value as PermissionLevel)}
+              className={inputClass}
+            >
+              {LEVEL_ORDER.map((l) => (
+                <option key={l} value={l}>
+                  {LEVEL_META[l].label}
+                </option>
+              ))}
+            </select>
           </Field>
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button

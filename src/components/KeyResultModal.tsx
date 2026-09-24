@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { PermissionLevel } from "@/lib/db";
+import { LEVEL_ORDER, LEVEL_META } from "@/lib/permissions";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
 
@@ -10,6 +12,7 @@ type Existing = {
   title: string;
   dueDate: string;
   ownerId: string;
+  level: PermissionLevel;
 };
 
 export default function KeyResultModal({
@@ -28,6 +31,7 @@ export default function KeyResultModal({
   const [title, setTitle] = useState(existing?.title ?? "");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [ownerId, setOwnerId] = useState(existing?.ownerId ?? "");
+  const [level, setLevel] = useState<PermissionLevel>(existing?.level ?? "EMPLOYEE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +50,7 @@ export default function KeyResultModal({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, dueDate, ownerId: ownerId || null, objectiveId }),
+      body: JSON.stringify({ title, dueDate, ownerId: ownerId || null, objectiveId, level }),
     });
     setLoading(false);
     if (!res.ok) {
@@ -125,6 +129,19 @@ export default function KeyResultModal({
               Must be on or before the objective&rsquo;s due date ({objectiveDueDate}).
             </p>
           )}
+          <Field label="Who can see this">
+            <select
+              value={level}
+              onChange={(e) => setLevel(e.target.value as PermissionLevel)}
+              className={inputClass}
+            >
+              {LEVEL_ORDER.map((l) => (
+                <option key={l} value={l}>
+                  {LEVEL_META[l].label}
+                </option>
+              ))}
+            </select>
+          </Field>
           <p className="text-[11.5px] text-ink-tertiary">
             A key result&rsquo;s status isn&rsquo;t set manually -- it&rsquo;s the worst status
             among its tasks (e.g. any task At Risk makes the key result At Risk), and the

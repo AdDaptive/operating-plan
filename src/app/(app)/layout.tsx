@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getObjectivesFull, getUserById } from "@/lib/db";
 import { objectiveProgress } from "@/lib/rollup";
+import { viewerFrom, visibleObjectives } from "@/lib/permissions";
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 
@@ -11,7 +12,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const userId = (session?.user as { id?: string } | undefined)?.id;
   if (!session || !userId) redirect("/login");
 
-  const [objectives, currentUser] = await Promise.all([getObjectivesFull(), getUserById(userId)]);
+  const [allObjectives, currentUser] = await Promise.all([getObjectivesFull(), getUserById(userId)]);
+
+  // Sidebar only lists what this person can actually see -- see
+  // src/lib/permissions.ts. Applied here (not just on the individual
+  // pages) so the sidebar's own objective list, not just each page's
+  // content, respects levels too.
+  const objectives = visibleObjectives(allObjectives, viewerFrom(currentUser));
 
   // getObjectivesFull() (not listObjectives() + listKeyResultsByObjective())
   // on purpose: only it derives each key result's status from its tasks

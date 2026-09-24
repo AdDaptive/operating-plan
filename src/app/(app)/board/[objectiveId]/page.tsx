@@ -1,12 +1,16 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { getObjectiveFull, listUsers } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getObjectiveFull, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress, objectiveProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
+import { canSeeLevel, viewerFrom } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
+import LevelSelect from "@/components/LevelSelect";
 import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
@@ -24,8 +28,32 @@ export default async function BoardPage({
   params: { objectiveId: string };
   searchParams?: { person?: string; editTask?: string };
 }) {
-  const objective = await getObjectiveFull(params.objectiveId);
-  if (!objective) notFound();
+  const session = await getServerSession(authOptions);
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+
+  const [rawObjective, currentUser] = await Promise.all([
+    getObjectiveFull(params.objectiveId),
+    sessionUserId ? getUserById(sessionUserId) : Promise.resolve(undefined),
+  ]);
+  if (!rawObjective) notFound();
+
+  const viewer = viewerFrom(currentUser);
+  // Treated exactly like "this objective doesn't exist" for anyone whose
+  // level can't see it -- same as a bad/guessed objectiveId in the URL,
+  // rather than a distinguishable "forbidden" page that would confirm the
+  // objective's existence to someone who can't see it.
+  if (!canSeeLevel(viewer, rawObjective.level)) notFound();
+
+  // Cascading level filter: a key result the viewer can't see drops its
+  // tasks with it, same rule as the org-wide browsing pages (see
+  // visibleObjectives in src/lib/permissions.ts) -- just applied to one
+  // objective's already-fetched tree instead of the whole list.
+  const objective = {
+    ...rawObjective,
+    keyResults: rawObjective.keyResults
+      .filter((kr) => canSeeLevel(viewer, kr.level))
+      .map((kr) => ({ ...kr, tasks: kr.tasks.filter((t) => canSeeLevel(viewer, t.level)) })),
+  };
 
   // Set when a link (e.g. from the Activity page) wants this page to land
   // directly in a specific task's edit modal rather than just the board --
@@ -66,12 +94,14 @@ export default async function BoardPage({
           <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent">
             {overallProgress}% overall
           </span>
+          <LevelSelect endpoint={`/api/objectives/${objective.id}`} level={objective.level} />
           <ObjectiveModal
             existing={{
               id: objective.id,
               title: objective.title,
               team: objective.team ?? "",
               dueDate: objective.dueDate ?? "",
+              level: objective.level,
             }}
           />
           <DeleteObjectiveButton
@@ -167,6 +197,7 @@ export default async function BoardPage({
                         title: kr.title,
                         dueDate: kr.dueDate ?? "",
                         ownerId: kr.ownerId ?? "",
+                        level: kr.level,
                       }}
                     />
                     <DeleteKeyResultButton keyResultId={kr.id} taskCount={kr.tasks.length} />
@@ -179,6 +210,7 @@ export default async function BoardPage({
                       {progress}%
                     </span>
                     <KeyResultStatusBadge status={kr.status} />
+                    <LevelSelect endpoint={`/api/key-results/${kr.id}`} level={kr.level} />
                   </div>
                   </>
                 }
@@ -261,8 +293,9 @@ export default async function BoardPage({
                         {format(new Date(task.dueDate), "MMM d")}
                         {overdue ? " · overdue" : ""}
                       </div>
-                      <div className="md:pt-0.5">
+                      <div className="flex items-center gap-1.5 md:pt-0.5">
                         <StatusSelect taskId={task.id} status={task.status} />
+                        <LevelSelect endpoint={`/api/tasks/${task.id}`} level={task.level} />
                       </div>
                       <div className="flex items-center gap-1 md:pt-0.5">
                         <TaskModal
@@ -278,6 +311,7 @@ export default async function BoardPage({
                             subOwnerId: task.subOwnerId ?? "",
                             priority: task.priority ?? "",
                             keyResultId: task.keyResultId,
+                            level: task.level,
                             description: task.description ?? "",
                             notes: task.notes ?? "",
                           }}

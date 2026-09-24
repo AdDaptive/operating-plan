@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
-import { listRecentTaskActivity, listTasksWithActivityStatus, listUsers } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { listRecentTaskActivity, listTasksWithActivityStatus, listUsers, getUserById } from "@/lib/db";
 import {
   formatActivityValue,
   ACTIVITY_FIELD_LABELS,
   activityFreshness,
   FRESHNESS_META,
 } from "@/lib/activityLabel";
+import { canSeeChain, viewerFrom } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusPill from "@/components/StatusPill";
 import PersonFilter from "@/components/PersonFilter";
@@ -26,13 +29,26 @@ export default async function ActivityPage({
 }: {
   searchParams?: { person?: string };
 }) {
-  const [activity, tasks, allUsers] = await Promise.all([
+  const session = await getServerSession(authOptions);
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+
+  const [allActivity, allTasksWithStatus, allUsers, currentUser] = await Promise.all([
     listRecentTaskActivity(ACTIVITY_LIMIT),
     listTasksWithActivityStatus(),
     listUsers(),
+    sessionUserId ? getUserById(sessionUserId) : Promise.resolve(undefined),
   ]);
   const users = allUsers.map((u) => ({ id: u.id, name: u.name }));
   const userById = new Map(allUsers.map((u) => [u.id, u]));
+
+  // Level-filtered before the person filter/sort below -- a row only
+  // surfaces here if this viewer can see its task, its key result, AND
+  // its objective (see canSeeChain in src/lib/permissions.ts). Note this
+  // is filtering the already-capped most-recent-200 activity rows, not
+  // re-querying a fuller set -- see the ACTIVITY_LIMIT comment above.
+  const viewer = viewerFrom(currentUser);
+  const activity = allActivity.filter((a) => canSeeChain(viewer, a.taskLevel, a.keyResultLevel, a.objectiveLevel));
+  const tasks = allTasksWithStatus.filter((t) => canSeeChain(viewer, t.level, t.keyResultLevel, t.objectiveLevel));
 
   const personFilter = searchParams?.person ?? "";
 

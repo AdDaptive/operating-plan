@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import type { TaskStatus } from "@/lib/db";
+import type { TaskStatus, PermissionLevel } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META } from "@/lib/status";
+import { LEVEL_META } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import ObjectiveModal from "./ObjectiveModal";
 import DeleteObjectiveButton from "./DeleteObjectiveButton";
@@ -26,6 +27,7 @@ export type ObjectiveCardData = {
   title: string;
   team: string | null;
   dueDate: string | null;
+  level: PermissionLevel;
   progress: number;
   taskCount: number;
   owners: string[];
@@ -43,8 +45,14 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="mb-1.5 text-[10px] font-bold tracking-wide text-ink-tertiary">
+          <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold tracking-wide text-ink-tertiary">
             OBJECTIVE
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[9.5px] font-bold normal-case tracking-normal"
+              style={{ background: LEVEL_META[objective.level].bg, color: LEVEL_META[objective.level].text }}
+            >
+              {LEVEL_META[objective.level].label}
+            </span>
           </div>
           <div className="text-[15.5px] font-bold leading-snug text-ink">{objective.title}</div>
           {(objective.team || objective.dueDate) && (
@@ -62,6 +70,7 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
               title: objective.title,
               team: objective.team ?? "",
               dueDate: objective.dueDate ?? "",
+              level: objective.level,
             }}
           />
           <DeleteObjectiveButton

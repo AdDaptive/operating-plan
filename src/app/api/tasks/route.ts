@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { title, status, dueDate, ownerId, subOwnerId, priority, keyResultId, description, notes } = body ?? {};
+  const { title, status, dueDate, ownerId, subOwnerId, priority, keyResultId, level, description, notes } = body ?? {};
   if (!title || !dueDate || !ownerId || !keyResultId) {
     return NextResponse.json(
       { error: "title, dueDate, ownerId, and keyResultId are required." },
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     subOwnerId,
     priority,
     keyResultId,
+    level: level || undefined,
     description,
     notes,
   });

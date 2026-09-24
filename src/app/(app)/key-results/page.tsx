@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { getObjectivesFull, listUsers } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getObjectivesFull, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
+import { viewerFrom, visibleObjectives } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
+import LevelSelect from "@/components/LevelSelect";
 import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
 import DeleteTaskButton from "@/components/DeleteTaskButton";
 import TaskModal from "@/components/TaskModal";
@@ -29,8 +33,18 @@ export default async function KeyResultsPage({
 }: {
   searchParams?: { person?: string; priority?: string };
 }) {
-  const [objectives, allUsers] = await Promise.all([getObjectivesFull(), listUsers()]);
+  const session = await getServerSession(authOptions);
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+
+  const [allObjectivesFull, allUsers, currentUser] = await Promise.all([
+    getObjectivesFull(),
+    listUsers(),
+    sessionUserId ? getUserById(sessionUserId) : Promise.resolve(undefined),
+  ]);
   const users = allUsers.map((u) => ({ id: u.id, name: u.name }));
+  // Level-filtered before anything else below (personFilter/priorityFilter,
+  // grouping, counts) -- see visibleObjectives in src/lib/permissions.ts.
+  const objectives = visibleObjectives(allObjectivesFull, viewerFrom(currentUser));
 
   // Filtering down to one person's tasks (owner or delegated sub-owner,
   // same "counts for both" convention as Home's myTasks filter), and/or
@@ -174,6 +188,7 @@ export default async function KeyResultsPage({
                                     title: kr.title,
                                     dueDate: kr.dueDate ?? "",
                                     ownerId: kr.ownerId ?? "",
+                                    level: kr.level,
                                   }}
                                 />
                                 <DeleteKeyResultButton keyResultId={kr.id} taskCount={kr.tasks.length} />
@@ -189,6 +204,7 @@ export default async function KeyResultsPage({
                                   {progress}%
                                 </span>
                                 <KeyResultStatusBadge status={kr.status} />
+                                <LevelSelect endpoint={`/api/key-results/${kr.id}`} level={kr.level} />
                               </div>
                             </>
                           }
@@ -271,8 +287,9 @@ export default async function KeyResultsPage({
                                   {format(new Date(task.dueDate), "MMM d")}
                                   {overdue ? " · overdue" : ""}
                                 </div>
-                                <div className="md:pt-0.5">
+                                <div className="flex items-center gap-1.5 md:pt-0.5">
                                   <StatusSelect taskId={task.id} status={task.status} />
+                                  <LevelSelect endpoint={`/api/tasks/${task.id}`} level={task.level} />
                                 </div>
                                 <div className="flex items-center gap-1 md:pt-0.5">
                                   <TaskModal
@@ -287,6 +304,7 @@ export default async function KeyResultsPage({
                                       subOwnerId: task.subOwnerId ?? "",
                                       priority: task.priority ?? "",
                                       keyResultId: task.keyResultId,
+                                      level: task.level,
                                       description: task.description ?? "",
                                       notes: task.notes ?? "",
                                     }}

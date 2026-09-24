@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => null);
-  const { title, dueDate, ownerId, objectiveId } = body ?? {};
+  const { title, dueDate, ownerId, objectiveId, level } = body ?? {};
   if (!title || !objectiveId) {
     return NextResponse.json({ error: "Title and objectiveId are required." }, { status: 400 });
   }
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     dueDate,
     ownerId: ownerId || null,
     objectiveId,
+    level: level || undefined,
   });
 
   // Same as task creation: notify the owner right away, awaited so it

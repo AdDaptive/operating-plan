@@ -1,10 +1,20 @@
-import { getObjectivesFull } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getObjectivesFull, getUserById } from "@/lib/db";
 import { objectiveProgress } from "@/lib/rollup";
+import { viewerFrom, visibleObjectives } from "@/lib/permissions";
 import ObjectiveCard from "@/components/ObjectiveCard";
 import ObjectiveModal from "@/components/ObjectiveModal";
 
 export default async function ObjectivesPage() {
-  const objectives = await getObjectivesFull();
+  const session = await getServerSession(authOptions);
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+
+  const [allObjectives, currentUser] = await Promise.all([
+    getObjectivesFull(),
+    sessionUserId ? getUserById(sessionUserId) : Promise.resolve(undefined),
+  ]);
+  const objectives = visibleObjectives(allObjectives, viewerFrom(currentUser));
 
   const cards = objectives.map((o) => {
     const tasks = o.keyResults.flatMap((kr) => kr.tasks);
@@ -14,6 +24,7 @@ export default async function ObjectivesPage() {
       title: o.title,
       team: o.team,
       dueDate: o.dueDate,
+      level: o.level,
       progress: objectiveProgress(o.keyResults),
       taskCount: tasks.length,
       owners,
