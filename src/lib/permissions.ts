@@ -8,10 +8,13 @@ import type { ObjectiveFull, PermissionLevel } from "@/lib/db";
  * anywhere the levels are listed, e.g. the level <select>s in the create/
  * edit modals and the inline LevelSelect dropdowns.
  */
+// Internal key stays EMPLOYEE (it's what's stored in the database column
+// and would need a migration to rename), but it now displays as "All" --
+// the bottom tier that every level, including itself, can see.
 export const LEVEL_ORDER: PermissionLevel[] = ["EMPLOYEE", "MANAGER", "SENIOR_LEADERSHIP"];
 
 export const LEVEL_META: Record<PermissionLevel, { label: string; bg: string; text: string }> = {
-  EMPLOYEE: { label: "Employee", bg: "#F2F4F7", text: "#475467" },
+  EMPLOYEE: { label: "All", bg: "#F2F4F7", text: "#475467" },
   MANAGER: { label: "Manager", bg: "#EAF1FE", text: "#1849A9" },
   SENIOR_LEADERSHIP: { label: "Senior Leadership", bg: "#F4EBFF", text: "#6941C6" },
 };
@@ -27,7 +30,7 @@ export type Viewer = { level: PermissionLevel; isAdmin: boolean };
 /**
  * Hierarchical visibility: someone at a given level sees content at their
  * own level and every level below it (Senior Leadership sees everything,
- * Manager sees Manager + Employee, Employee sees only Employee). Admins
+ * Manager sees Manager + All, All sees only All-level content). Admins
  * always see everything, same as they're already a super-user for account
  * management (invites, resend-invite, editing someone's manager).
  */
@@ -51,8 +54,8 @@ export function canSeeChain(viewer: Viewer, ...levels: (PermissionLevel | null |
 }
 
 /** Builds a Viewer from the session's current UserRow (or undefined for a
- * missing/deleted account -- treated as the most restrictive case, an
- * unprivileged Employee, rather than defaulting to "sees everything"). */
+ * missing/deleted account -- treated as the most restrictive case, the
+ * unprivileged "All" level, rather than defaulting to "sees everything"). */
 export function viewerFrom(user: { level: PermissionLevel; isAdmin: boolean } | undefined): Viewer {
   return user ? { level: user.level, isAdmin: user.isAdmin } : { level: "EMPLOYEE", isAdmin: false };
 }

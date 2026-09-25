@@ -7,7 +7,7 @@ import { LEVEL_ORDER, LEVEL_META } from "@/lib/permissions";
 
 /**
  * Admin-only "Level" dropdown on the Team page -- sets a person's own
- * visibility level (Senior Leadership / Manager / Employee), which
+ * visibility level (Senior Leadership / Manager / All), which
  * decides which objectives/key results/tasks they can see (see
  * src/lib/permissions.ts). Mirrors ManagerSelect.tsx exactly: PATCHes
  * /api/users/[id] as soon as a new level is picked, reverts and shows an

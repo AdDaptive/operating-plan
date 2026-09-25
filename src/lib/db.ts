@@ -29,11 +29,13 @@ export type TaskPriority = "URGENT_IMPORTANT" | "URGENT_NOT_IMPORTANT" | "IMPORT
  * Three-tier visibility level, settable independently on every user
  * account and every objective/key result/task (see src/lib/permissions.ts
  * for the hierarchy -- Senior Leadership sees everything, Manager sees
- * Manager + Employee, Employee sees only Employee -- and for the filtering
+ * Manager + All, All sees only All-level content -- and for the filtering
  * helpers built on top of this). Defaults to "EMPLOYEE" everywhere it's
- * stored, which under that hierarchy is the most-visible default (every
- * level can see Employee-tagged content), so adding this column to
- * existing rows doesn't hide anything that was visible before.
+ * stored (displayed as "All" -- the internal key kept its original name
+ * to avoid a column-value migration), which under that hierarchy is the
+ * most-visible default (every level can see All-tagged content), so
+ * adding this column to existing rows doesn't hide anything that was
+ * visible before.
  */
 export type PermissionLevel = "SENIOR_LEADERSHIP" | "MANAGER" | "EMPLOYEE";
 
@@ -294,7 +296,7 @@ async function ensureSchema(): Promise<void> {
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "subOwnerId" TEXT REFERENCES users(id);
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority TEXT;
 
-    -- Permission levels (Senior Leadership / Manager / Employee): one on
+    -- Permission levels (Senior Leadership / Manager / All): one on
     -- every user account (who they are) and one on every objective, key
     -- result, and task (who can see it) -- see PermissionLevel's doc
     -- comment above and src/lib/permissions.ts for the hierarchy this
