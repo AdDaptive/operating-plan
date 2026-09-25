@@ -9,6 +9,7 @@ import {
 } from "@/lib/db";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { bucketTasks, isTeamFlag } from "@/lib/taskBuckets";
+import { keyResultsUrl } from "@/lib/appUrl";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
 
@@ -236,7 +237,7 @@ function buildDigestMessage(
     (textSections.length > 0
       ? textSections.join("\n\n")
       : "You're all caught up -- nothing open right now.") +
-    "\n";
+    `\n\nView Key Results: ${keyResultsUrl()}\n`;
 
   const subject =
     overdueCount > 0
@@ -316,6 +317,9 @@ function buildHtml(user: UserRow, ownTasks: TaskForReminder[], teamFlags: TaskFo
         Your AdDaptive OS status for ${format(new Date(), "MMM d, yyyy")}
       </p>
       ${body || '<p style="font-size:13px;color:#667085;">You\'re all caught up -- nothing open right now.</p>'}
+      <a href="${keyResultsUrl()}" style="display:inline-block;margin-top:18px;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
+        View Key Results
+      </a>
     </div>
   </body>
 </html>`;

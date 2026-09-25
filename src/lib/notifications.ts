@@ -11,6 +11,7 @@ import {
 import { STATUS_META } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
 import type { AgendaKeyResultSection } from "@/lib/meetingAgenda";
+import { baseUrl, keyResultsUrl } from "@/lib/appUrl";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
 import type { SendResult } from "@/lib/notifiers/email";
@@ -59,7 +60,8 @@ async function notifyPersonAboutTask(
       (where ? `${where}\n` : "") +
       `Due ${dueLabel} — ${meta.label}\n` +
       (task.description ? `\nDetails: ${task.description}\n` : "") +
-      (task.notes ? `Notes: ${task.notes}\n` : "");
+      (task.notes ? `Notes: ${task.notes}\n` : "") +
+      `\nView Key Results: ${keyResultsUrl()}\n`;
 
     const html = `<!doctype html>
 <html>
@@ -84,6 +86,9 @@ async function notifyPersonAboutTask(
           ? `<p style="font-size:13px;color:#475467;font-style:italic;margin:0;">Notes: ${escapeHtml(task.notes)}</p>`
           : ""
       }
+      <a href="${keyResultsUrl()}" style="display:inline-block;margin-top:14px;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
+        View Key Results
+      </a>
     </div>
   </body>
 </html>`;
@@ -165,7 +170,8 @@ export async function notifyKeyResultAssigned(
       `You've been assigned a new key result${assignedBy}:\n\n` +
       `${keyResult.title}\n` +
       (objective ? `${objective.title}\n` : "") +
-      (keyResult.dueDate ? `Due ${format(new Date(keyResult.dueDate), "MMM d, yyyy")}\n` : "");
+      (keyResult.dueDate ? `Due ${format(new Date(keyResult.dueDate), "MMM d, yyyy")}\n` : "") +
+      `\nView Key Results: ${keyResultsUrl()}\n`;
 
     const html = `<!doctype html>
 <html>
@@ -181,6 +187,9 @@ export async function notifyKeyResultAssigned(
           ? `<p style="font-size:13px;color:#475467;margin:0;">Due ${format(new Date(keyResult.dueDate), "MMM d, yyyy")}</p>`
           : ""
       }
+      <a href="${keyResultsUrl()}" style="display:inline-block;margin-top:14px;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
+        View Key Results
+      </a>
     </div>
   </body>
 </html>`;
@@ -194,16 +203,9 @@ export async function notifyKeyResultAssigned(
   }
 }
 
-/**
- * Base URL for links in outbound emails (the activation link below, and
- * anywhere else one gets added later). NEXTAUTH_URL is already required
- * for NextAuth itself in production (see README), so this reuses it
- * rather than introducing a second env var; falls back to localhost for
- * local dev where NEXTAUTH_URL is often left unset.
- */
-function baseUrl(): string {
-  return process.env.NEXTAUTH_URL || "http://localhost:3000";
-}
+// baseUrl()/keyResultsUrl() moved to src/lib/appUrl.ts (2026-09-25) so
+// digest.ts can build the same "View Key Results" link without the two
+// notifier modules needing to depend on each other.
 
 /**
  * Shared by sendAccountInviteEmail and sendPasswordResetEmail below -- the
@@ -329,7 +331,8 @@ ${lines}`;
       `${textSections}
 
 ` +
-      `View the full, up-to-date agenda: ${agendaUrl}`;
+      `View the full, up-to-date agenda: ${agendaUrl}
+View Key Results: ${keyResultsUrl()}`;
 
     const html = `<!doctype html>
 <html>
@@ -342,6 +345,9 @@ ${lines}`;
         View full agenda
       </a>
       <p style="font-size:12px;color:#98A2B3;margin:18px 0 0;">This link always shows the latest data, right up to the meeting.</p>
+      <p style="font-size:12px;color:#98A2B3;margin:6px 0 0;">
+        <a href="${keyResultsUrl()}" style="color:#3538CD;">View all Key Results</a>
+      </p>
     </div>
   </body>
 </html>`;
