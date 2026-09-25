@@ -11,7 +11,7 @@ import {
 import { STATUS_META } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
 import type { AgendaKeyResultSection } from "@/lib/meetingAgenda";
-import { baseUrl, keyResultsUrl } from "@/lib/appUrl";
+import { baseUrl, keyResultsUrl, emailSubject } from "@/lib/appUrl";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
 import type { SendResult } from "@/lib/notifiers/email";
@@ -49,10 +49,11 @@ async function notifyPersonAboutTask(
         ? `You've been assigned a new task${assignedBy}`
         : `You've been delegated as a sub-owner on a new task${assignedBy}`;
 
-    const subject =
+    const subject = emailSubject(
       role === "owner"
         ? `New task assigned to you: ${task.title}`
-        : `You've been added as a sub-owner: ${task.title}`;
+        : `You've been added as a sub-owner: ${task.title}`
+    );
 
     const text =
       `${intro}:\n\n` +
@@ -164,7 +165,7 @@ export async function notifyKeyResultAssigned(
     const assignedBy =
       creator.name && creator.id !== keyResult.ownerId ? ` by ${creator.name}` : "";
 
-    const subject = `New key result assigned to you: ${keyResult.title}`;
+    const subject = emailSubject(`New key result assigned to you: ${keyResult.title}`);
 
     const text =
       `You've been assigned a new key result${assignedBy}:\n\n` +
@@ -262,7 +263,7 @@ export async function sendAccountInviteEmail(
 ): Promise<SendResult> {
   return sendPasswordSetEmail(invitee, {
     page: "activate",
-    subject: "You've been added to AdDaptive OS",
+    subject: emailSubject("You've been added to AdDaptive OS"),
     intro: `${inviterName} added you to AdDaptive OS. Set your password to finish setting up your account.`,
     cta: "Set your password",
   });
@@ -278,7 +279,7 @@ export async function sendAccountInviteEmail(
 export async function sendPasswordResetEmail(user: UserRow): Promise<SendResult> {
   return sendPasswordSetEmail(user, {
     page: "reset-password",
-    subject: "Reset your AdDaptive OS password",
+    subject: emailSubject("Reset your AdDaptive OS password"),
     intro: "Someone (hopefully you) requested a password reset for your AdDaptive OS account.",
     cta: "Reset your password",
   });
@@ -300,7 +301,7 @@ export async function sendMeetingAgendaEmail(
   try {
     const dateLabel = format(new Date(agenda.meetingDate), "EEEE, MMMM d, yyyy");
     const agendaUrl = `${baseUrl()}/agenda/${agenda.id}`;
-    const subject = `Meeting agenda: ${dateLabel}`;
+    const subject = emailSubject(`Meeting agenda: ${dateLabel}`);
     const attendeeNames = attendees.map((a) => a.name).join(", ");
 
     const textSections = sections.length

@@ -27,3 +27,22 @@ export function baseUrl(): string {
 export function keyResultsUrl(): string {
   return `${baseUrl()}/key-results`;
 }
+
+/**
+ * Every outbound email's subject line starts with this, in all caps, so
+ * a person scanning their inbox can immediately tell an email came from
+ * the platform (added 2026-09-25, per explicit request -- applies to
+ * every email this app sends, including the invite/reset emails, unlike
+ * the "View Key Results" link above which deliberately skips those two).
+ */
+export const EMAIL_SUBJECT_PREFIX = "OPERATING PLAN UPDATE";
+
+/**
+ * Prefixes a subject line with EMAIL_SUBJECT_PREFIX. Every email-building
+ * function in notifications.ts/digest.ts should route its final subject
+ * through this rather than prepending the prefix by hand, so the format
+ * (and any future change to it) stays in one place.
+ */
+export function emailSubject(subject: string): string {
+  return `${EMAIL_SUBJECT_PREFIX}: ${subject}`;
+}

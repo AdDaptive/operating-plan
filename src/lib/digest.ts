@@ -9,7 +9,7 @@ import {
 } from "@/lib/db";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { bucketTasks, isTeamFlag } from "@/lib/taskBuckets";
-import { keyResultsUrl } from "@/lib/appUrl";
+import { keyResultsUrl, emailSubject } from "@/lib/appUrl";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
 
@@ -239,10 +239,11 @@ function buildDigestMessage(
       : "You're all caught up -- nothing open right now.") +
     `\n\nView Key Results: ${keyResultsUrl()}\n`;
 
-  const subject =
+  const subject = emailSubject(
     overdueCount > 0
       ? `AdDaptive OS: ${overdueCount} overdue task${overdueCount === 1 ? "" : "s"} — daily status`
-      : `AdDaptive OS — daily status for ${format(new Date(), "MMM d")}`;
+      : `AdDaptive OS — daily status for ${format(new Date(), "MMM d")}`
+  );
 
   const html = buildHtml(user, ownTasks, teamFlags);
 
