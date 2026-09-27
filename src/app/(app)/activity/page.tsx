@@ -52,17 +52,18 @@ export default async function ActivityPage({
 
   const personFilter = searchParams?.person ?? "";
 
-  // Most-recently-changed-first: recently changed (green) tasks lead, then
-  // changed-but-not-recent (yellow) tasks, then never-changed (red) tasks
-  // last. Since green vs. yellow is purely a function of how recent
-  // lastChangedAt is, sorting by lastChangedAt descending produces exactly
-  // this three-tier grouping on its own -- every green task sorts ahead of
-  // every yellow task (both ordered most-recent-first within their tier),
-  // and every never-changed task (lastChangedAt: null, treated as
-  // -Infinity) sorts dead last, since nothing is smaller. The person filter
-  // (when set) narrows this to tasks that person owns or is a delegated
-  // sub-owner of, same "counts for both" convention as Home's myTasks
-  // filter.
+  // Most-recently-changed-first: today's changes lead, then yesterday's,
+  // then the rest of the last 7 days, then anything older, then
+  // never-changed tasks last. Since which of those five buckets a task
+  // falls into (see activityFreshness in activityLabel.ts) is purely a
+  // function of how recent lastChangedAt is, sorting by lastChangedAt
+  // descending produces exactly this five-tier grouping on its own -- each
+  // bucket's tasks sort ahead of the next (all ordered most-recent-first
+  // within their own bucket), and every never-changed task (lastChangedAt:
+  // null, treated as -Infinity) sorts dead last, since nothing is smaller.
+  // The person filter (when set) narrows this to tasks that person owns or
+  // is a delegated sub-owner of, same "counts for both" convention as
+  // Home's myTasks filter.
   const tasksFiltered = personFilter
     ? tasks.filter((t) => t.ownerId === personFilter || t.subOwnerId === personFilter)
     : tasks;
@@ -98,7 +99,7 @@ export default async function ActivityPage({
         <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
           <h2 className="text-[15px] font-bold text-ink">All tasks</h2>
           <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-ink-tertiary">
-            {(["green", "yellow", "red"] as const).map((key) => (
+            {(["today", "yesterday", "last7", "stale", "never"] as const).map((key) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span
                   className="h-[8px] w-[8px] flex-shrink-0 rounded-full"
