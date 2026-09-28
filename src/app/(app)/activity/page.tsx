@@ -9,6 +9,7 @@ import {
   activityFreshness,
   FRESHNESS_META,
 } from "@/lib/activityLabel";
+import { isOverdue } from "@/lib/status";
 import { canSeeChain, viewerFrom } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusPill from "@/components/StatusPill";
@@ -117,10 +118,11 @@ export default async function ActivityPage({
             </div>
           ) : (
             <>
-              <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1.1fr_140px_120px_170px]">
+              <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px]">
                 <span>TASK</span>
                 <span>KEY RESULT</span>
                 <span>OWNER</span>
+                <span>DUE DATE</span>
                 <span>STATUS</span>
                 <span>LAST CHANGED</span>
               </div>
@@ -131,7 +133,7 @@ export default async function ActivityPage({
                   <Link
                     key={t.id}
                     href={t.objectiveId ? `/board/${t.objectiveId}?editTask=${t.id}` : "/activity"}
-                    className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.3fr_1.1fr_140px_120px_170px] md:items-center md:gap-3"
+                    className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px] md:items-center md:gap-3"
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <span
@@ -166,6 +168,14 @@ export default async function ActivityPage({
                         <span className="text-[12.5px] text-ink-tertiary">Unassigned</span>
                       )}
                     </div>
+                    <span
+                      className="text-[12.5px]"
+                      style={{ color: isOverdue(t.dueDate, t.status) ? "#B42318" : "var(--ink-secondary, #475467)" }}
+                    >
+                      <span className="font-semibold text-ink-tertiary md:hidden">Due: </span>
+                      {format(new Date(t.dueDate), "MMM d")}
+                      {isOverdue(t.dueDate, t.status) ? " · overdue" : ""}
+                    </span>
                     <span>
                       <span className="font-semibold text-ink-tertiary md:hidden">Status: </span>
                       <StatusPill status={t.status} />
