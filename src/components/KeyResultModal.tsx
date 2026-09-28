@@ -47,19 +47,27 @@ export default function KeyResultModal({
     setLoading(true);
     const url = existing ? `/api/key-results/${existing.id}` : "/api/key-results";
     const method = existing ? "PATCH" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, dueDate, ownerId: ownerId || null, objectiveId, level }),
-    });
-    setLoading(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Something went wrong.");
-      return;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, dueDate, ownerId: ownerId || null, objectiveId, level }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Something went wrong.");
+        return;
+      }
+      setOpen(false);
+      router.refresh();
+    } catch {
+      // Same fix as TaskModal: a thrown fetch (dropped connection, request
+      // timed out) previously left `loading` stuck true forever with the
+      // save button just spinning and no feedback at all.
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    setOpen(false);
-    router.refresh();
   }
 
   return (

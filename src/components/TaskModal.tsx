@@ -90,30 +90,39 @@ export default function TaskModal({
     setError(null);
     const url = existing ? `/api/tasks/${existing.id}` : "/api/tasks";
     const method = existing ? "PATCH" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        status,
-        dueDate,
-        ownerId,
-        subOwnerId: subOwnerId || null,
-        priority: priority || null,
-        keyResultId,
-        level,
-        description: description || null,
-        notes: notes || null,
-      }),
-    });
-    setLoading(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Something went wrong.");
-      return;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          status,
+          dueDate,
+          ownerId,
+          subOwnerId: subOwnerId || null,
+          priority: priority || null,
+          keyResultId,
+          level,
+          description: description || null,
+          notes: notes || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Something went wrong.");
+        return;
+      }
+      setOpen(false);
+      router.refresh();
+    } catch {
+      // A thrown fetch (dropped connection, request timed out, mobile
+      // network handoff mid-request) previously left `loading` stuck
+      // true forever with no feedback -- the save button just spun. Now
+      // it surfaces as a normal, retryable error instead.
+      setError("Couldn't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    setOpen(false);
-    router.refresh();
   }
 
   function closeModal() {
