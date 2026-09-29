@@ -40,8 +40,12 @@ task owners and their managers.
   without actually emailing/Slacking anyone. Trigger it two ways:
   - The **"Send daily digest now"** button on any task board (calls
     `POST /api/digest/run`).
-  - The scheduled `GET /api/digest/run` hit by the Coolify cron task
-    at 13:00 UTC — see "Deploying" below.
+  - The scheduled `GET /api/digest/run`, hit every ~15 minutes by a
+    Coolify Scheduled Task, but only actually sends once it's
+    8:15–08:44am America/New_York local time (see
+    `src/lib/digestSchedule.ts`) — effectively "once a day around
+    8:30am Eastern," automatically correct across the EST/EDT switch.
+    See "Deploying" below.
 
   Sends are logged per person/per channel/per day in the `digest_logs`
   table so triggering it more than once in a day (the button, then the
@@ -182,11 +186,17 @@ insert a user directly via psql if you'd prefer no demo data.
 
 In Coolify: app → **Scheduled Tasks** tab. Add:
 
-- **Schedule:** `0 13 * * *` (1 PM UTC daily)
+- **Schedule:** `*/15 * * * *` (every 15 minutes)
 - **Command:** `sh -c 'wget -qO- --header="Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/digest/run'`
 
 This calls the same endpoint the button on the task board calls, just on a
-schedule. Sends are idempotent — triggering it more than once in a day
+schedule — but the route itself only actually sends when it's currently
+8:15–08:44am America/New_York local time (`src/lib/digestSchedule.ts`);
+every other 15-minute tick is a fast no-op. Running it every 15 minutes
+(rather than once a day at a fixed UTC time) is what lets the actual send
+time track Eastern local time correctly through the EST/EDT switch each
+year, without ever needing to touch this cron expression again. Sends are
+also idempotent regardless — triggering it more than once in the window
 won't double-send anyone.
 
 ### 6. Health check

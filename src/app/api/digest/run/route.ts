@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { runDailyDigest } from "@/lib/digest";
+import { isWithinDigestWindow } from "@/lib/digestSchedule";
 
 // Manual trigger from the UI's "Send daily digest now" button — requires a
 // signed-in session, same as any other page action.
@@ -21,6 +22,13 @@ export async function POST() {
 // this endpoint refuses all GET requests so a stranger can't trigger sends.
 // (Netlify Scheduled Functions or any other cron can call this the same
 // way — just send that same header.)
+//
+// Expected to be called every ~15 minutes (see the README's Coolify
+// Scheduled Task setup), not once a day at a fixed UTC time — the actual
+// "is it 8:30am Eastern yet" decision is made in isWithinDigestWindow()
+// so the send time tracks America/New_York's real local time across the
+// EST/EDT switch, rather than drifting by an hour twice a year the way a
+// fixed-UTC-offset cron entry would.
 export async function GET(request: NextRequest) {
   const expected = process.env.CRON_SECRET;
   if (!expected) {
@@ -33,6 +41,10 @@ export async function GET(request: NextRequest) {
   const auth = request.headers.get("authorization");
   if (auth !== `Bearer ${expected}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isWithinDigestWindow()) {
+    return NextResponse.json({ skipped: true, reason: "outside digest window" });
   }
 
   const results = await runDailyDigest();
