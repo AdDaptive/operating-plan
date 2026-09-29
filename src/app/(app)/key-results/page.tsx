@@ -106,6 +106,12 @@ export default async function KeyResultsPage({
             extraParams={personFilter ? { person: personFilter } : {}}
           />
           <CreateMeetingAgendaButton users={users} />
+          {objectives.length > 0 && (
+            <KeyResultModal
+              objectives={objectives.map((o) => ({ id: o.id, title: o.title, dueDate: o.dueDate }))}
+              users={users}
+            />
+          )}
           {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} />}
         </div>
       </div>
