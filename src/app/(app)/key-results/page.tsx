@@ -215,7 +215,7 @@ export default async function KeyResultsPage({
                             </>
                           }
                         >
-                          <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_190px_120px_130px_74px]">
+                          <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_180px_110px_190px_74px]">
                             <span>TASK</span>
                             <span>OWNER</span>
                             <span>DUE DATE</span>
@@ -234,7 +234,7 @@ export default async function KeyResultsPage({
                             return (
                               <div
                                 key={task.id}
-                                className="flex flex-col gap-2 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1fr_190px_120px_130px_74px] md:items-start md:gap-3"
+                                className="flex flex-col gap-2 border-t border-[#F2F4F7] px-5 py-3 md:grid md:grid-cols-[1fr_180px_110px_190px_74px] md:items-start md:gap-3"
                               >
                                 <div className="flex min-w-0 flex-col gap-1 pt-0.5">
                                   <div className="flex min-w-0 items-center gap-2.5">
@@ -257,6 +257,14 @@ export default async function KeyResultsPage({
                                       </span>
                                     )}
                                   </div>
+                                  {task.status === "DONE" && (
+                                    <div
+                                      className="ml-4 w-fit rounded-md px-2 py-0.5 text-[12px] font-extrabold uppercase tracking-wide"
+                                      style={{ background: "#E6F4EA", color: "#1E7B34" }}
+                                    >
+                                      Completed
+                                    </div>
+                                  )}
                                   {task.subOwner && (
                                     <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
                                       Also delegated to {task.subOwner.name}
@@ -293,7 +301,7 @@ export default async function KeyResultsPage({
                                   {format(new Date(task.dueDate), "MMM d")}
                                   {overdue ? " · overdue" : ""}
                                 </div>
-                                <div className="flex items-center gap-1.5 md:pt-0.5">
+                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 md:pt-0.5">
                                   <StatusSelect taskId={task.id} status={task.status} />
                                   <LevelSelect endpoint={`/api/tasks/${task.id}`} level={task.level} />
                                 </div>
