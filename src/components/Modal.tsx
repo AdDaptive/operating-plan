@@ -1,5 +1,22 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
+/**
+ * Renders via a portal into document.body rather than inline at this
+ * component's own position in the tree. This matters beyond just
+ * z-index/overflow hygiene: several callers (e.g. ObjectiveModal's edit
+ * button, used inside ObjectiveCard's whole-card <Link> to the board
+ * page) open this modal from a spot that sits inside a clickable
+ * ancestor. Without a portal, every click inside the modal -- including
+ * just clicking into the title field to edit it -- was still a click on
+ * a DOM descendant of that ancestor <a>, and stopPropagation() alone
+ * doesn't cancel the browser's native default action (navigation) the
+ * way preventDefault() does, so the click silently navigated away and
+ * the modal "disappeared" mid-edit. Portaling to document.body removes
+ * the modal from that ancestor's DOM subtree entirely, so this can't
+ * happen regardless of where a future caller triggers it from.
+ */
 export default function Modal({
   open,
   onClose,
@@ -12,7 +29,7 @@ export default function Modal({
   children: React.ReactNode;
 }) {
   if (!open) return null;
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
@@ -36,6 +53,7 @@ export default function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
