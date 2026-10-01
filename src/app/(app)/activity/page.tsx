@@ -118,13 +118,14 @@ export default async function ActivityPage({
             </div>
           ) : (
             <>
-              <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px]">
+              <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px_150px]">
                 <span>TASK</span>
                 <span>KEY RESULT</span>
                 <span>OWNER</span>
                 <span>DUE DATE</span>
                 <span>STATUS</span>
                 <span>LAST CHANGED</span>
+                <span>CHANGED BY</span>
               </div>
               {tasksByFreshness.map((t) => {
                 const freshness = activityFreshness(t.lastChangedAt);
@@ -133,7 +134,7 @@ export default async function ActivityPage({
                   <Link
                     key={t.id}
                     href={t.objectiveId ? `/board/${t.objectiveId}?editTask=${t.id}` : "/activity"}
-                    className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px] md:items-center md:gap-3"
+                    className="flex flex-col gap-1.5 border-t border-[#F2F4F7] px-5 py-3 hover:bg-surface-panel md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px_150px] md:items-center md:gap-3"
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <span
@@ -189,6 +190,22 @@ export default async function ActivityPage({
                         ? formatDistanceToNow(new Date(t.lastChangedAt), { addSuffix: true })
                         : "Never changed"}
                     </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink-tertiary md:hidden">Changed by: </span>
+                      {t.lastChangedBy ? (
+                        <>
+                          <div
+                            className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
+                            style={{ background: colorForName(t.lastChangedBy.name) }}
+                          >
+                            {initials(t.lastChangedBy.name)}
+                          </div>
+                          <span className="truncate text-[12.5px] text-[#344054]">{t.lastChangedBy.name}</span>
+                        </>
+                      ) : (
+                        <span className="text-[12.5px] text-ink-tertiary">—</span>
+                      )}
+                    </div>
                   </Link>
                 );
               })}

@@ -1028,6 +1028,9 @@ export type TaskWithActivityStatus = TaskRow & {
   objectiveLevel: PermissionLevel | null;
   /** Most recent task_activity."changedAt" for this task, or null if it has never had a tracked field change. */
   lastChangedAt: string | null;
+  /** Who made that most recent change, or null if it has never had one (or that change was system-driven with no actor). */
+  lastChangedById: string | null;
+  lastChangedBy: UserRow | null;
 };
 
 /**
@@ -1040,14 +1043,21 @@ export type TaskWithActivityStatus = TaskRow & {
 export async function listTasksWithActivityStatus(): Promise<TaskWithActivityStatus[]> {
   const [tasks, lastChanged, users, keyResults, objectives] = await Promise.all([
     query<TaskRow>("SELECT * FROM tasks"),
-    query<{ taskId: string; lastChangedAt: string }>(
-      'SELECT "taskId", MAX("changedAt") AS "lastChangedAt" FROM task_activity GROUP BY "taskId"'
+    // DISTINCT ON picks exactly one row per taskId -- the one with the
+    // largest "changedAt" thanks to the matching ORDER BY -- so this
+    // carries both the timestamp AND who made that specific change,
+    // unlike a GROUP BY MAX("changedAt") which only gives back the
+    // timestamp.
+    query<{ taskId: string; lastChangedAt: string; lastChangedById: string | null }>(
+      `SELECT DISTINCT ON ("taskId") "taskId", "changedAt" AS "lastChangedAt", "changedById" AS "lastChangedById"
+       FROM task_activity
+       ORDER BY "taskId", "changedAt" DESC`
     ),
     listUsers(),
     query<KeyResultRow>("SELECT * FROM key_results"),
     listObjectives(),
   ]);
-  const lastChangedByTaskId = new Map(lastChanged.map((r) => [r.taskId, r.lastChangedAt]));
+  const lastChangedByTaskId = new Map(lastChanged.map((r) => [r.taskId, r]));
   const userById = new Map(users.map((u) => [u.id, u]));
   const krById = new Map(keyResults.map((kr) => [kr.id, kr]));
   const objById = new Map(objectives.map((o) => [o.id, o]));
@@ -1055,6 +1065,7 @@ export async function listTasksWithActivityStatus(): Promise<TaskWithActivitySta
   return tasks.map((t) => {
     const kr = krById.get(t.keyResultId);
     const objective = kr ? objById.get(kr.objectiveId) : undefined;
+    const lastChanged = lastChangedByTaskId.get(t.id);
     return {
       ...t,
       owner: userById.get(t.ownerId) ?? null,
@@ -1064,7 +1075,9 @@ export async function listTasksWithActivityStatus(): Promise<TaskWithActivitySta
       objectiveId: objective?.id ?? "",
       objectiveTitle: objective?.title ?? "",
       objectiveLevel: objective?.level ?? null,
-      lastChangedAt: lastChangedByTaskId.get(t.id) ?? null,
+      lastChangedAt: lastChanged?.lastChangedAt ?? null,
+      lastChangedById: lastChanged?.lastChangedById ?? null,
+      lastChangedBy: lastChanged?.lastChangedById ? (userById.get(lastChanged.lastChangedById) ?? null) : null,
     };
   });
 }
