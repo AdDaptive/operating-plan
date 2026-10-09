@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   const objective = await getObjectiveById(objectiveId);
   if (objective?.dueDate && dueDate > objective.dueDate) {
     return NextResponse.json(
-      { error: "A key result's due date can't be after the objective's due date." },
+      { error: "A project's due date can't be after the objective's due date." },
       { status: 400 }
     );
   }

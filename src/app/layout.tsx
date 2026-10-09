@@ -4,7 +4,7 @@ import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "AdDaptive OS",
-  description: "Objectives, key results, and tasks in one place.",
+  description: "Objectives, projects, and tasks in one place.",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",

@@ -71,7 +71,7 @@ export default async function ReportsPage() {
           <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_100px_110px_110px]">
             <span>OBJECTIVE</span>
             <span>PROGRESS</span>
-            <span>KEY RESULTS</span>
+            <span>PROJECTS</span>
             <span>TASKS</span>
           </div>
           {objectiveRows.map((o) => (
@@ -83,7 +83,7 @@ export default async function ReportsPage() {
               <span className="truncate text-[13.5px] font-medium text-ink">{o.title}</span>
               <span className="text-[13.5px] font-semibold text-ink">{o.progress}% complete</span>
               <span className="text-[13px] text-ink-secondary">
-                <span className="font-semibold text-ink-tertiary md:hidden">Key results: </span>
+                <span className="font-semibold text-ink-tertiary md:hidden">Projects: </span>
                 {o.keyResultCount}
               </span>
               <span className="text-[13px] text-ink-secondary">

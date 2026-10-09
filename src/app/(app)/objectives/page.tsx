@@ -53,7 +53,7 @@ export default async function ObjectivesPage() {
           <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white py-20 text-center">
             <p className="font-display text-[16px] font-bold text-ink">No objectives yet</p>
             <p className="max-w-sm text-[13px] text-ink-secondary">
-              Create your first objective, then add key results and tasks to it from its
+              Create your first objective, then add projects and tasks to it from its
               task board.
             </p>
           </div>

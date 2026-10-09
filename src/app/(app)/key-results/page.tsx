@@ -87,9 +87,9 @@ export default async function KeyResultsPage({
     <>
       <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-line bg-white px-4 py-4 md:px-7 md:py-5">
         <div>
-          <h1 className="font-display text-[21px] font-bold text-ink">Key Results</h1>
+          <h1 className="font-display text-[21px] font-bold text-ink">Projects</h1>
           <p className="mt-1 text-[13px] text-ink-secondary">
-            {totalKeyResults} key result{totalKeyResults === 1 ? "" : "s"} across{" "}
+            {totalKeyResults} project{totalKeyResults === 1 ? "" : "s"} across{" "}
             {objectivesWithKeyResults.length} objective{objectivesWithKeyResults.length === 1 ? "" : "s"}
           </p>
         </div>
@@ -120,12 +120,12 @@ export default async function KeyResultsPage({
         {objectivesWithKeyResults.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-white py-20 text-center">
             <p className="font-display text-[16px] font-bold text-ink">
-              {personFilter || priorityFilter ? "No matching tasks" : "No key results yet"}
+              {personFilter || priorityFilter ? "No matching tasks" : "No projects yet"}
             </p>
             <p className="max-w-sm text-[13px] text-ink-secondary">
               {personFilter || priorityFilter
                 ? "No task matches this filter combination yet."
-                : "Add a key result to an objective from its board page and it\u2019ll show up here."}
+                : "Add a project to an objective from its board page and it\u2019ll show up here."}
             </p>
           </div>
         ) : (
@@ -159,7 +159,7 @@ export default async function KeyResultsPage({
                               <div className="flex items-start gap-2">
                                 <div>
                                   <div className="mb-1 text-[10px] font-bold tracking-wide text-ink-tertiary">
-                                    KEY RESULT
+                                    PROJECT
                                   </div>
                                   <div className="text-[15px] font-bold text-ink">{kr.title}</div>
                                   <div className="mt-1 flex items-center gap-2.5">
@@ -225,7 +225,7 @@ export default async function KeyResultsPage({
 
                           {kr.tasks.length === 0 && (
                             <div className="px-5 py-5 text-[13px] text-ink-tertiary">
-                              No tasks yet under this key result.
+                              No tasks yet under this project.
                             </div>
                           )}
 

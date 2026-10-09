@@ -49,10 +49,10 @@ export default function LoginPage() {
 
         <div className="max-w-[400px]">
           <h1 className="mb-4 font-display text-[34px] font-extrabold leading-tight text-white">
-            Run every objective, key result, and task in one place.
+            Run every objective, project, and task in one place.
           </h1>
           <p className="text-[15px] leading-relaxed text-white/70">
-            Give every task an owner and a key result, track color-coded status against
+            Give every task an owner and a project, track color-coded status against
             due dates, and let automatic reminders keep owners and managers on schedule.
           </p>
         </div>

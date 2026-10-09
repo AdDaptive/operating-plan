@@ -205,7 +205,7 @@ function taskLine(t: TaskForReminder, withOwner = false): string {
   const overdue = isOverdue(t.dueDate, t.status);
   let line =
     `${owner}${t.title}\n` +
-    `      Key result: ${t.keyResultTitle}\n` +
+    `      Project: ${t.keyResultTitle}\n` +
     `      Due: ${dueLabel(t)}${overdue ? " (overdue)" : ""} — ${STATUS_META[t.status].label}`;
   if (t.description) line += `\n      Details: ${t.description}`;
   if (t.notes) line += `\n      Notes: ${t.notes}`;
@@ -237,7 +237,7 @@ function buildDigestMessage(
     (textSections.length > 0
       ? textSections.join("\n\n")
       : "You're all caught up -- nothing open right now.") +
-    `\n\nView Key Results: ${keyResultsUrl()}\n`;
+    `\n\nView Projects: ${keyResultsUrl()}\n`;
 
   const subject = emailSubject(
     overdueCount > 0
@@ -266,7 +266,7 @@ function htmlRow(t: TaskForReminder, withOwner: boolean): string {
           ${owner}<span style="font-weight:600;">${escapeHtml(t.title)}</span>
         </div>
         <div style="margin-left:16px;margin-top:2px;color:#667085;font-size:12px;">
-          Key result: ${escapeHtml(t.keyResultTitle)}
+          Project: ${escapeHtml(t.keyResultTitle)}
         </div>
         <div style="margin-left:16px;margin-top:2px;color:#667085;font-size:12px;">
           Due ${dueLabel(t)}${overdue ? ' <span style="color:#B42318;font-weight:600;">(overdue)</span>' : ""} —
@@ -319,7 +319,7 @@ function buildHtml(user: UserRow, ownTasks: TaskForReminder[], teamFlags: TaskFo
       </p>
       ${body || '<p style="font-size:13px;color:#667085;">You\'re all caught up -- nothing open right now.</p>'}
       <a href="${keyResultsUrl()}" style="display:inline-block;margin-top:18px;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
-        View Key Results
+        View Projects
       </a>
     </div>
   </body>

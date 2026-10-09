@@ -161,7 +161,7 @@ export default function InviteUserModal({ users }: Props) {
                   ))}
                 </select>
                 <p className="mt-1 text-[11.5px] text-ink-tertiary">
-                  Decides which objectives, key results, and tasks they can see -- editable later
+                  Decides which objectives, projects, and tasks they can see -- editable later
                   from this Team page.
                 </p>
               </div>

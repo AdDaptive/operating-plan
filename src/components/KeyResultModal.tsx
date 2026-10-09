@@ -63,7 +63,7 @@ export default function KeyResultModal({
     setError(null);
 
     if (effectiveObjectiveDueDate && dueDate && dueDate > effectiveObjectiveDueDate) {
-      setError("A key result's due date can't be after the objective's due date.");
+      setError("A project's due date can't be after the objective's due date.");
       return;
     }
 
@@ -104,7 +104,7 @@ export default function KeyResultModal({
       {existing ? (
         <button
           onClick={() => setOpen(true)}
-          aria-label="Edit key result"
+          aria-label="Edit project"
           className="flex items-center justify-center rounded-lg p-1.5 text-ink-tertiary hover:bg-surface-panel hover:text-ink"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -121,10 +121,10 @@ export default function KeyResultModal({
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          Add Key Result
+          Add Project
         </button>
       )}
-      <Modal open={open} onClose={() => setOpen(false)} title={existing ? "Edit key result" : "Add key result"}>
+      <Modal open={open} onClose={() => setOpen(false)} title={existing ? "Edit project" : "Add project"}>
         <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
           {!objectiveId && objectives && (
             <Field label="Objective">
@@ -142,7 +142,7 @@ export default function KeyResultModal({
               </select>
             </Field>
           )}
-          <Field label="Key result">
+          <Field label="Project">
             <input
               required
               value={title}
@@ -196,16 +196,16 @@ export default function KeyResultModal({
             </select>
           </Field>
           <p className="text-[11.5px] text-ink-tertiary">
-            A key result&rsquo;s status isn&rsquo;t set manually -- it&rsquo;s the worst status
-            among its tasks (e.g. any task At Risk makes the key result At Risk), and the
-            objective&rsquo;s overall progress is the average of its key results&rsquo; statuses.
+            A project&rsquo;s status isn&rsquo;t set manually -- it&rsquo;s the worst status
+            among its tasks (e.g. any task At Risk makes the project At Risk), and the
+            objective&rsquo;s overall progress is the average of its projects&rsquo; statuses.
           </p>
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button
             disabled={loading}
             className="mt-1 rounded-lg bg-accent py-2.5 text-[14px] font-semibold text-white hover:bg-accent-hover disabled:opacity-60"
           >
-            {loading ? "Saving…" : existing ? "Save changes" : "Add key result"}
+            {loading ? "Saving…" : existing ? "Save changes" : "Add project"}
           </button>
         </form>
       </Modal>

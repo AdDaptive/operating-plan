@@ -21,7 +21,7 @@ export default function DeleteKeyResultButton({
     e.preventDefault();
     e.stopPropagation();
     const detail = taskCount > 0 ? ` This also deletes ${taskCount} task${taskCount === 1 ? "" : "s"}.` : "";
-    if (!window.confirm(`Delete this key result?${detail} This can't be undone.`)) return;
+    if (!window.confirm(`Delete this project?${detail} This can't be undone.`)) return;
     await fetch(`/api/key-results/${keyResultId}`, { method: "DELETE" });
     router.refresh();
   }
@@ -29,7 +29,7 @@ export default function DeleteKeyResultButton({
   return (
     <button
       onClick={onClick}
-      aria-label="Delete key result"
+      aria-label="Delete project"
       className="flex items-center justify-center rounded-lg p-1.5 text-ink-tertiary hover:bg-surface-panel hover:text-status-offTrackText"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -126,12 +126,12 @@ export default async function HomePage() {
       <div className="flex-grow overflow-y-auto p-4 md:p-7">
         <div className="flex flex-col gap-8">
           <section className="flex flex-col gap-3">
-            <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR KEY RESULTS</h2>
+            <h2 className="text-[13px] font-bold tracking-wide text-ink-tertiary">YOUR PROJECTS</h2>
             {myKeyResults.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-1 rounded-card border border-dashed border-line bg-white py-10 text-center">
-                <p className="text-[13.5px] font-semibold text-ink">No key results assigned to you</p>
+                <p className="text-[13.5px] font-semibold text-ink">No projects assigned to you</p>
                 <p className="text-[12.5px] text-ink-tertiary">
-                  Key results you own will show up here — see any objective&rsquo;s board to set an owner.
+                  Projects you own will show up here — see any objective&rsquo;s board to set an owner.
                 </p>
               </div>
             ) : (
@@ -193,7 +193,7 @@ export default async function HomePage() {
                     </Link>
                     <div className="hidden gap-3 px-5 py-2 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_1fr_120px_130px]">
                       <span>TASK</span>
-                      <span>KEY RESULT</span>
+                      <span>PROJECT</span>
                       <span>DUE DATE</span>
                       <span>STATUS</span>
                     </div>
@@ -240,7 +240,7 @@ export default async function HomePage() {
                             )}
                           </div>
                           <span className="min-w-0 truncate text-[13px] text-ink-secondary md:pt-0.5">
-                            <span className="font-semibold text-ink-tertiary md:hidden">Key result: </span>
+                            <span className="font-semibold text-ink-tertiary md:hidden">Project: </span>
                             {task.keyResultTitle}
                           </span>
                           <div
@@ -288,7 +288,7 @@ export default async function HomePage() {
                       </Link>
                       <div className="hidden gap-3 px-5 py-2 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1fr_1fr_120px_130px]">
                         <span>TASK</span>
-                        <span>KEY RESULT</span>
+                        <span>PROJECT</span>
                         <span>DUE DATE</span>
                         <span>STATUS</span>
                       </div>
@@ -309,7 +309,7 @@ export default async function HomePage() {
                               <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
                             </div>
                             <span className="min-w-0 truncate text-[13px] text-ink-secondary">
-                              <span className="font-semibold text-ink-tertiary md:hidden">Key result: </span>
+                              <span className="font-semibold text-ink-tertiary md:hidden">Project: </span>
                               {task.keyResultTitle}
                             </span>
                             <div

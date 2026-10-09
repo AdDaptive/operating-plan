@@ -16,7 +16,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       const objective = await getObjectiveById(existing.objectiveId);
       if (objective?.dueDate && dueDate > objective.dueDate) {
         return NextResponse.json(
-          { error: "A key result's due date can't be after the objective's due date." },
+          { error: "A project's due date can't be after the objective's due date." },
           { status: 400 }
         );
       }

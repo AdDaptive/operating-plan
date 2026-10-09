@@ -1,6 +1,6 @@
 # AdDaptive OS
 
-An internal operating-software MVP: objectives, key results, and tasks, with
+An internal operating-software MVP: objectives, projects, and tasks, with
 individual accounts and a daily status digest (email and/or Slack) for
 task owners and their managers.
 
@@ -14,11 +14,11 @@ task owners and their managers.
   bootstrapped automatically (see `src/lib/db.ts`'s schema migration) --
   whichever account was created first (e.g. by the seed script below)
   automatically becomes an admin so they can invite everyone else.
-- **Objectives → Key Results → Tasks** — each task has an owner, a due
-  date, a status, and optional Details/Notes; each key result has its own
+- **Objectives → Projects → Tasks** — each task has an owner, a due
+  date, a status, and optional Details/Notes; each project has its own
   owner and due date, and its status is derived automatically (worst
   status among its tasks wins); each objective's overall progress is the
-  average of its key results' status-derived progress (`src/lib/rollup.ts`,
+  average of its projects' status-derived progress (`src/lib/rollup.ts`,
   `src/lib/status.ts`).
 - **Color-coded status + due dates** — Not Started / On Track / At Risk /
   Done, with overdue due dates shown in red (`src/lib/status.ts`).
@@ -222,7 +222,7 @@ src/
     (app)/layout.tsx              — shared sidebar shell for signed-in pages
     (app)/objectives/             — objectives grid (rollup view)
     (app)/board/[objectiveId]/    — task board for one objective
-    (app)/key-results/            — every key result across every objective, with its tasks
+    (app)/key-results/            — every project across every objective, with its tasks
     (app)/team/                   — directory + workload per person
     (app)/reports/                — org-wide status + progress overview
     api/
@@ -246,9 +246,9 @@ Dockerfile                        — multi-stage build, standalone Next.js outp
 
 ## What's intentionally left as an MVP
 
-- Key result status is derived from its tasks (`computeKeyResultStatus` in
+- Project status is derived from its tasks (`computeKeyResultStatus` in
   `src/lib/rollup.ts`), not set manually: worst status wins, in the order
-  At Risk > Not Started > On Track > Done, and a key result with no tasks
+  At Risk > Not Started > On Track > Done, and a project with no tasks
   defaults to Not Started. That status is mapped to a percentage via
   `STATUS_PROGRESS` in `src/lib/status.ts` for progress bars/rollup. Both
   are deliberate, adjustable conventions.

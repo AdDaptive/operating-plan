@@ -62,7 +62,7 @@ async function notifyPersonAboutTask(
       `Due ${dueLabel} — ${meta.label}\n` +
       (task.description ? `\nDetails: ${task.description}\n` : "") +
       (task.notes ? `Notes: ${task.notes}\n` : "") +
-      `\nView Key Results: ${keyResultsUrl()}\n`;
+      `\nView Projects: ${keyResultsUrl()}\n`;
 
     const html = `<!doctype html>
 <html>
@@ -88,7 +88,7 @@ async function notifyPersonAboutTask(
           : ""
       }
       <a href="${keyResultsUrl()}" style="display:inline-block;margin-top:14px;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
-        View Key Results
+        View Projects
       </a>
     </div>
   </body>
@@ -165,21 +165,21 @@ export async function notifyKeyResultAssigned(
     const assignedBy =
       creator.name && creator.id !== keyResult.ownerId ? ` by ${creator.name}` : "";
 
-    const subject = emailSubject(`New key result assigned to you: ${keyResult.title}`);
+    const subject = emailSubject(`New project assigned to you: ${keyResult.title}`);
 
     const text =
-      `You've been assigned a new key result${assignedBy}:\n\n` +
+      `You've been assigned a new project${assignedBy}:\n\n` +
       `${keyResult.title}\n` +
       (objective ? `${objective.title}\n` : "") +
       (keyResult.dueDate ? `Due ${format(new Date(keyResult.dueDate), "MMM d, yyyy")}\n` : "") +
-      `\nView Key Results: ${keyResultsUrl()}\n`;
+      `\nView Projects: ${keyResultsUrl()}\n`;
 
     const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:24px;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
     <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #EAECF0;border-radius:12px;padding:24px;">
       <p style="font-size:13px;color:#667085;margin:0 0 10px;">
-        You've been assigned a new key result${assignedBy ? escapeHtml(assignedBy) : ""}
+        You've been assigned a new project${assignedBy ? escapeHtml(assignedBy) : ""}
       </p>
       <h2 style="font-size:16px;color:#101828;margin:0 0 6px;">${escapeHtml(keyResult.title)}</h2>
       ${objective ? `<p style="font-size:13px;color:#667085;margin:0 0 6px;">${escapeHtml(objective.title)}</p>` : ""}
@@ -189,7 +189,7 @@ export async function notifyKeyResultAssigned(
           : ""
       }
       <a href="${keyResultsUrl()}" style="display:inline-block;margin-top:14px;background:#3538CD;color:#fff;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;">
-        View Key Results
+        View Projects
       </a>
     </div>
   </body>
@@ -333,7 +333,7 @@ ${lines}`;
 
 ` +
       `View the full, up-to-date agenda: ${agendaUrl}
-View Key Results: ${keyResultsUrl()}`;
+View Projects: ${keyResultsUrl()}`;
 
     const html = `<!doctype html>
 <html>
@@ -347,7 +347,7 @@ View Key Results: ${keyResultsUrl()}`;
       </a>
       <p style="font-size:12px;color:#98A2B3;margin:18px 0 0;">This link always shows the latest data, right up to the meeting.</p>
       <p style="font-size:12px;color:#98A2B3;margin:6px 0 0;">
-        <a href="${keyResultsUrl()}" style="color:#3538CD;">View all Key Results</a>
+        <a href="${keyResultsUrl()}" style="color:#3538CD;">View all Projects</a>
       </p>
     </div>
   </body>

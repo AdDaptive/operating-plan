@@ -77,7 +77,7 @@ export default function Sidebar({
           label="Objectives"
           active={pathname === "/objectives" || pathname.startsWith("/board/")}
         />
-        <SidebarLink href="/key-results" icon="tasks" label="Key Results" active={pathname === "/key-results"} />
+        <SidebarLink href="/key-results" icon="tasks" label="Projects" active={pathname === "/key-results"} />
         <SidebarLink href="/team" icon="team" label="Team" active={pathname === "/team"} />
         <SidebarLink href="/reports" icon="reports" label="Reports" active={pathname === "/reports"} />
         <SidebarLink href="/activity" icon="activity" label="Activity" active={pathname === "/activity"} />

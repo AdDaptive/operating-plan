@@ -120,7 +120,7 @@ export default async function ActivityPage({
             <>
               <div className="hidden gap-3 bg-surface-panel px-5 py-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary md:grid md:grid-cols-[1.3fr_1.1fr_140px_100px_120px_170px_150px]">
                 <span>TASK</span>
-                <span>KEY RESULT</span>
+                <span>PROJECT</span>
                 <span>OWNER</span>
                 <span>DUE DATE</span>
                 <span>STATUS</span>
@@ -150,7 +150,7 @@ export default async function ActivityPage({
                       </div>
                     </div>
                     <span className="truncate text-[12.5px] text-ink-secondary">
-                      <span className="font-semibold text-ink-tertiary md:hidden">Key result: </span>
+                      <span className="font-semibold text-ink-tertiary md:hidden">Project: </span>
                       {t.keyResultTitle || "—"}
                     </span>
                     <div className="flex items-center gap-2">

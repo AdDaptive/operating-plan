@@ -125,10 +125,10 @@ export default async function BoardPage({
           {objective.keyResults.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-3 rounded-card border border-dashed border-line bg-white py-16 text-center">
               <p className="font-display text-[16px] font-bold text-ink">
-                Add this objective&rsquo;s first key result
+                Add this objective&rsquo;s first project
               </p>
               <p className="max-w-sm text-[13px] text-ink-secondary">
-                Tasks live under a key result, and each key result&rsquo;s progress rolls up
+                Tasks live under a project, and each project&rsquo;s progress rolls up
                 into &ldquo;{objective.title}&rdquo;&rsquo;s overall progress.
               </p>
               <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} users={users} />
@@ -162,7 +162,7 @@ export default async function BoardPage({
                     <div className="flex items-start gap-2">
                     <div>
                       <div className="mb-1 text-[10px] font-bold tracking-wide text-ink-tertiary">
-                        KEY RESULT
+                        PROJECT
                       </div>
                       <div className="text-[15px] font-bold text-ink">{kr.title}</div>
                       <div className="mt-1 flex items-center gap-2.5">
@@ -225,7 +225,7 @@ export default async function BoardPage({
 
                 {kr.tasks.length === 0 && (
                   <div className="px-5 py-5 text-[13px] text-ink-tertiary">
-                    No tasks yet under this key result.
+                    No tasks yet under this project.
                   </div>
                 )}
 

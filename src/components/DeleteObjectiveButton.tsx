@@ -27,7 +27,7 @@ export default function DeleteObjectiveButton({
     e.stopPropagation();
     const detail =
       keyResultCount > 0
-        ? ` This also deletes ${keyResultCount} key result${keyResultCount === 1 ? "" : "s"} and ${taskCount} task${taskCount === 1 ? "" : "s"}.`
+        ? ` This also deletes ${keyResultCount} project${keyResultCount === 1 ? "" : "s"} and ${taskCount} task${taskCount === 1 ? "" : "s"}.`
         : "";
     if (!window.confirm(`Delete this objective?${detail} This can't be undone.`)) return;
     await fetch(`/api/objectives/${objectiveId}`, { method: "DELETE" });

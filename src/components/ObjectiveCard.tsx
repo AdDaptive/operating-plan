@@ -88,7 +88,7 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
 
       <div className="flex flex-col gap-3.5">
         {objective.keyResults.length === 0 && (
-          <p className="text-[12.5px] text-ink-tertiary">No key results yet.</p>
+          <p className="text-[12.5px] text-ink-tertiary">No projects yet.</p>
         )}
         {objective.keyResults.map((kr) => {
           const progress = keyResultProgress(kr);

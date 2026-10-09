@@ -172,7 +172,7 @@ export default function TaskModal({
               placeholder="e.g. Renew Trade Desk API contract"
             />
           </Field>
-          <Field label="Key result">
+          <Field label="Project">
             <select
               required
               value={keyResultId}

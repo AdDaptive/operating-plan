@@ -15,7 +15,7 @@ const TABS: { href: string; icon: keyof typeof NAV_ICONS; label: string; match: 
     label: "Objectives",
     match: (p) => p === "/objectives" || p.startsWith("/board/"),
   },
-  { href: "/key-results", icon: "tasks", label: "Key Results", match: (p) => p === "/key-results" },
+  { href: "/key-results", icon: "tasks", label: "Projects", match: (p) => p === "/key-results" },
   { href: "/team", icon: "team", label: "Team", match: (p) => p === "/team" },
   { href: "/reports", icon: "reports", label: "Reports", match: (p) => p === "/reports" },
 ];

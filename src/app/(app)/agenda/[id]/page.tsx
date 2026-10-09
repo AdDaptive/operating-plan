@@ -59,7 +59,7 @@ export default async function MeetingAgendaPage({ params }: { params: { id: stri
 
         {sections.length === 0 ? (
           <div className="rounded-card border border-dashed border-line bg-white py-14 text-center text-[13px] text-ink-secondary">
-            None of the selected attendees own or are delegated to any key result or task yet.
+            None of the selected attendees own or are delegated to any project or task yet.
           </div>
         ) : (
           <div className="flex flex-col gap-5">
@@ -73,7 +73,7 @@ export default async function MeetingAgendaPage({ params }: { params: { id: stri
                   )}
                 </div>
                 {s.tasks.length === 0 ? (
-                  <div className="px-5 py-4 text-[13px] text-ink-tertiary">No tasks under this key result yet.</div>
+                  <div className="px-5 py-4 text-[13px] text-ink-tertiary">No tasks under this project yet.</div>
                 ) : (
                   s.tasks.map((task) => {
                     const overdue = isOverdue(task.dueDate, task.status);
