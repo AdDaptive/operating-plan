@@ -31,6 +31,7 @@ export async function POST(req: Request) {
     ownerId: ownerId || null,
     objectiveId,
     level: level || undefined,
+    createdById: (session.user as { id?: string } | undefined)?.id ?? null,
   });
 
   // Same as task creation: notify the owner right away, awaited so it

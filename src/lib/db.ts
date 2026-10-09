@@ -75,6 +75,8 @@ export type KeyResultRow = {
   objectiveId: string;
   /** Who can see this key result (and its tasks) -- see the objective-level doc comment above. */
   level: PermissionLevel;
+  /** Who created this project (the signed-in session user's id). Null for ones created before this was tracked, or by a script with no signed-in user. */
+  createdById: string | null;
   createdAt: string;
 };
 
@@ -96,6 +98,8 @@ export type TaskRow = {
   description: string | null;
   /** Freeform status updates the owner keeps for themselves/others -- distinct from `description`. */
   notes: string | null;
+  /** Who created this task (the signed-in session user's id). Null for tasks created before this was tracked, or by a script with no signed-in user. */
+  createdById: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -128,6 +132,25 @@ export type TaskActivityRow = {
   id: string;
   taskId: string;
   field: TaskActivityField;
+  oldValue: string | null;
+  newValue: string | null;
+  /** Who made the change (the signed-in session user's id). Null for a system-driven update with no actor. */
+  changedById: string | null;
+  changedAt: string;
+};
+
+/**
+ * The project (key result) fields this app tracks a change history for:
+ * title, due date, owner, and who-can-see-it level. A project's status is
+ * derived from its tasks (computeKeyResultStatus), so there's nothing to
+ * log for it.
+ */
+export type KeyResultActivityField = "title" | "dueDate" | "ownerId" | "level";
+
+export type KeyResultActivityRow = {
+  id: string;
+  keyResultId: string;
+  field: KeyResultActivityField;
   oldValue: string | null;
   newValue: string | null;
   /** Who made the change (the signed-in session user's id). Null for a system-driven update with no actor. */
@@ -252,6 +275,20 @@ async function ensureSchema(): Promise<void> {
       "changedAt" TEXT NOT NULL
     );
 
+    -- Project (key result) change log: same idea as task_activity above,
+    -- one row per tracked field that actually changed value on an edit
+    -- (title, dueDate, ownerId, level -- see KeyResultActivityField).
+    -- Cascades away with its key result.
+    CREATE TABLE IF NOT EXISTS key_result_activity (
+      id TEXT PRIMARY KEY,
+      "keyResultId" TEXT NOT NULL REFERENCES key_results(id) ON DELETE CASCADE,
+      field TEXT NOT NULL,
+      "oldValue" TEXT,
+      "newValue" TEXT,
+      "changedById" TEXT REFERENCES users(id),
+      "changedAt" TEXT NOT NULL
+    );
+
     -- "Create Meeting Agenda" snapshots of who's attending and when -- the
     -- actual agenda content (which key results/tasks show up) is always
     -- computed live from current data when the page is viewed or the email
@@ -308,6 +345,12 @@ async function ensureSchema(): Promise<void> {
     ALTER TABLE objectives ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
     ALTER TABLE key_results ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'EMPLOYEE';
+
+    -- Who created each task and each project (key result). Nullable and
+    -- additive -- everything created before this was tracked simply has no
+    -- recorded creator, and the history panels say so instead of guessing.
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "createdById" TEXT REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS "createdById" TEXT REFERENCES users(id) ON DELETE SET NULL;
 
     -- "Off Track" was removed as a status option. Re-map any existing rows
     -- (tasks, and the vestigial key_results.status column) to At Risk, the
@@ -619,6 +662,8 @@ export async function createKeyResult(data: {
   ownerId?: string | null;
   objectiveId: string;
   level?: PermissionLevel;
+  /** Who created it (the signed-in session user's id), shown in the project's history. */
+  createdById?: string | null;
 }): Promise<KeyResultRow> {
   const row: KeyResultRow = {
     id: newId("kr"),
@@ -633,18 +678,24 @@ export async function createKeyResult(data: {
     ownerId: data.ownerId ?? null,
     objectiveId: data.objectiveId,
     level: data.level ?? "EMPLOYEE",
+    createdById: data.createdById ?? null,
     createdAt: nowIso(),
   };
   await query(
-    'INSERT INTO key_results (id, title, status, "dueDate", "ownerId", "objectiveId", level, "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.objectiveId, row.level, row.createdAt]
+    'INSERT INTO key_results (id, title, status, "dueDate", "ownerId", "objectiveId", level, "createdById", "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.objectiveId, row.level, row.createdById, row.createdAt]
   );
   return row;
 }
 
+/** The four fields updateKeyResult diffs on every edit and logs to key_result_activity when they actually change. */
+const TRACKED_KEY_RESULT_FIELDS: KeyResultActivityField[] = ["title", "dueDate", "ownerId", "level"];
+
 export async function updateKeyResult(
   id: string,
-  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId" | "level">>
+  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId" | "level">>,
+  /** Who made this edit (the signed-in session user's id), for the project's history. Null/omitted for a system-driven update with no actor. */
+  changedById?: string | null
 ): Promise<KeyResultRow | undefined> {
   const existing = await getKeyResultById(id);
   if (!existing) return undefined;
@@ -653,6 +704,20 @@ export async function updateKeyResult(
     'UPDATE key_results SET title = $1, "dueDate" = $2, "ownerId" = $3, level = $4 WHERE id = $5',
     [next.title, next.dueDate, next.ownerId, next.level, id]
   );
+
+  // Same rule as the task movement log: one row per tracked field whose
+  // final written value actually differs from what was there before, so
+  // re-saving the form with nothing changed logs nothing.
+  const changedAt = nowIso();
+  for (const field of TRACKED_KEY_RESULT_FIELDS) {
+    if (existing[field] !== next[field]) {
+      await query(
+        'INSERT INTO key_result_activity (id, "keyResultId", field, "oldValue", "newValue", "changedById", "changedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [newId("kra"), id, field, existing[field], next[field], changedById ?? null, changedAt]
+      );
+    }
+  }
+
   return next;
 }
 
@@ -675,6 +740,8 @@ export async function createTask(data: {
   /** Optional Eisenhower urgency/importance classification. */
   priority?: TaskPriority | null;
   level?: PermissionLevel;
+  /** Who created it (the signed-in session user's id), shown in the task's history. */
+  createdById?: string | null;
 }): Promise<TaskRow> {
   const now = nowIso();
   const row: TaskRow = {
@@ -689,12 +756,13 @@ export async function createTask(data: {
     level: data.level ?? "EMPLOYEE",
     description: data.description ?? null,
     notes: data.notes ?? null,
+    createdById: data.createdById ?? null,
     createdAt: now,
     updatedAt: now,
   };
   await query(
-    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "subOwnerId", priority, "keyResultId", level, description, notes, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
-    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.subOwnerId, row.priority, row.keyResultId, row.level, row.description, row.notes, row.createdAt, row.updatedAt]
+    'INSERT INTO tasks (id, title, status, "dueDate", "ownerId", "subOwnerId", priority, "keyResultId", level, description, notes, "createdById", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+    [row.id, row.title, row.status, row.dueDate, row.ownerId, row.subOwnerId, row.priority, row.keyResultId, row.level, row.description, row.notes, row.createdById, row.createdAt, row.updatedAt]
   );
   return row;
 }
@@ -973,6 +1041,41 @@ export async function listTaskActivityForTask(taskId: string): Promise<TaskActiv
   ]);
   const userById = new Map(users.map((u) => [u.id, u]));
   return rows.map((r) => ({ ...r, changedBy: r.changedById ? (userById.get(r.changedById) ?? null) : null }));
+}
+
+/** When a task was created and by whom (null creator = created before that was tracked). Undefined if the task doesn't exist. */
+export async function getTaskCreationInfo(
+  taskId: string
+): Promise<{ createdAt: string; createdBy: UserRow | null } | undefined> {
+  const task = await getTaskById(taskId);
+  if (!task) return undefined;
+  const createdBy = task.createdById ? ((await getUserById(task.createdById)) ?? null) : null;
+  return { createdAt: task.createdAt, createdBy };
+}
+
+export type KeyResultActivityWithUser = KeyResultActivityRow & { changedBy: UserRow | null };
+
+/** One project's full change history, newest first. */
+export async function listKeyResultActivityForKeyResult(keyResultId: string): Promise<KeyResultActivityWithUser[]> {
+  const [rows, users] = await Promise.all([
+    query<KeyResultActivityRow>(
+      'SELECT * FROM key_result_activity WHERE "keyResultId" = $1 ORDER BY "changedAt" DESC',
+      [keyResultId]
+    ),
+    listUsers(),
+  ]);
+  const userById = new Map(users.map((u) => [u.id, u]));
+  return rows.map((r) => ({ ...r, changedBy: r.changedById ? (userById.get(r.changedById) ?? null) : null }));
+}
+
+/** When a project was created and by whom (null creator = created before that was tracked). Undefined if it doesn't exist. */
+export async function getKeyResultCreationInfo(
+  keyResultId: string
+): Promise<{ createdAt: string; createdBy: UserRow | null } | undefined> {
+  const kr = await getKeyResultById(keyResultId);
+  if (!kr) return undefined;
+  const createdBy = kr.createdById ? ((await getUserById(kr.createdById)) ?? null) : null;
+  return { createdAt: kr.createdAt, createdBy };
 }
 
 export type TaskActivityFull = TaskActivityRow & {

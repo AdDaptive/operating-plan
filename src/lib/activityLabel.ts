@@ -1,6 +1,7 @@
 import { format, isToday, isYesterday, differenceInCalendarDays } from "date-fns";
-import type { TaskActivityField, TaskStatus } from "@/lib/db";
+import type { TaskActivityField, TaskStatus, KeyResultActivityField, PermissionLevel } from "@/lib/db";
 import { STATUS_META } from "@/lib/status";
+import { LEVEL_META } from "@/lib/permissions";
 
 export const ACTIVITY_FIELD_LABELS: Record<TaskActivityField, string> = {
   status: "Status",
@@ -107,6 +108,33 @@ export function formatActivityValue(
     case "notes":
       if (!value) return "(cleared)";
       return value.length > MAX_TEXT_PREVIEW ? `${value.slice(0, MAX_TEXT_PREVIEW)}…` : value;
+    default:
+      return value ?? "—";
+  }
+}
+
+export const KEY_RESULT_ACTIVITY_FIELD_LABELS: Record<KeyResultActivityField, string> = {
+  title: "Title",
+  dueDate: "Due date",
+  ownerId: "Owner",
+  level: "Who can see this",
+};
+
+/** Same idea as formatActivityValue above, for a project's (key result's) history rows. */
+export function formatKeyResultActivityValue(
+  field: KeyResultActivityField,
+  value: string | null,
+  userById: Map<string, { name: string }>
+): string {
+  switch (field) {
+    case "title":
+      return value ? (value.length > MAX_TEXT_PREVIEW ? `${value.slice(0, MAX_TEXT_PREVIEW)}…` : value) : "—";
+    case "dueDate":
+      return value ? format(new Date(value), "MMM d, yyyy") : "—";
+    case "ownerId":
+      return value ? (userById.get(value)?.name ?? "Unknown person") : "Unassigned";
+    case "level":
+      return value ? (LEVEL_META[value as PermissionLevel]?.label ?? value) : "—";
     default:
       return value ?? "—";
   }

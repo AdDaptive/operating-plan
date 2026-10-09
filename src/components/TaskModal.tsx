@@ -34,6 +34,13 @@ type ActivityEntry = {
   changedBy: { id: string; name: string } | null;
 };
 
+type HistoryData = {
+  entries: ActivityEntry[];
+  /** When the task was created and by whom (createdBy is null for tasks created before creators were tracked). */
+  createdAt: string | null;
+  createdBy: { id: string; name: string } | null;
+};
+
 export default function TaskModal({
   keyResults,
   users,
@@ -66,7 +73,7 @@ export default function TaskModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [history, setHistory] = useState<ActivityEntry[] | null>(null);
+  const [history, setHistory] = useState<HistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const userById = new Map(users.map((u) => [u.id, u]));
 
@@ -79,7 +86,7 @@ export default function TaskModal({
     if (history === null && existing) {
       setHistoryLoading(true);
       const res = await fetch(`/api/tasks/${existing.id}/activity`);
-      setHistory(res.ok ? await res.json() : []);
+      setHistory(res.ok ? await res.json() : { entries: [], createdAt: null, createdBy: null });
       setHistoryLoading(false);
     }
   }
@@ -113,6 +120,10 @@ export default function TaskModal({
         return;
       }
       setOpen(false);
+      // Drop the cached history so it's re-fetched (and includes this
+      // save) the next time the panel is opened.
+      setHistory(null);
+      setHistoryOpen(false);
       router.refresh();
     } catch {
       // A thrown fetch (dropped connection, request timed out, mobile
@@ -293,22 +304,22 @@ export default function TaskModal({
                 className="flex w-full items-center justify-between px-3 py-2.5 text-[12.5px] font-semibold text-ink-secondary hover:text-ink"
               >
                 <span>
-                  History{history && history.length > 0 ? ` (${history.length})` : ""}
+                  History{history && history.entries.length > 0 ? ` (${history.entries.length})` : ""}
                 </span>
                 <span className="text-ink-tertiary">{historyOpen ? "▴" : "▾"}</span>
               </button>
               {historyOpen && (
                 <div className="max-h-[220px] overflow-y-auto border-t border-line px-3 py-2.5">
                   {historyLoading && <p className="text-[12px] text-ink-tertiary">Loading…</p>}
-                  {!historyLoading && history && history.length === 0 && (
+                  {!historyLoading && history && history.entries.length === 0 && (
                     <p className="text-[12px] text-ink-tertiary">
                       No changes recorded yet -- status, due date, sub-owner, details, and notes
                       edits will show up here.
                     </p>
                   )}
-                  {!historyLoading && history && history.length > 0 && (
+                  {!historyLoading && history && history.entries.length > 0 && (
                     <ul className="flex flex-col gap-2.5">
-                      {history.map((h) => (
+                      {history.entries.map((h) => (
                         <li key={h.id} className="text-[12px] leading-relaxed text-ink-secondary">
                           <span className="font-semibold text-ink">{ACTIVITY_FIELD_LABELS[h.field]}</span>
                           {": "}
@@ -322,6 +333,15 @@ export default function TaskModal({
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {!historyLoading && history && history.createdAt && (
+                    <div className="mt-2.5 border-t border-[#F2F4F7] pt-2.5 text-[12px] leading-relaxed text-ink-secondary">
+                      <span className="font-semibold text-ink">Created</span>
+                      <div className="text-[11px] text-ink-tertiary">
+                        {history.createdBy ? `by ${history.createdBy.name}` : "creator not recorded"} ·{" "}
+                        {format(new Date(history.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

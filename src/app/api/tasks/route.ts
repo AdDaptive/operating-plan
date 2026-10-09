@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     level: level || undefined,
     description,
     notes,
+    createdById: (session.user as { id?: string } | undefined)?.id ?? null,
   });
 
   // Notify the owner right away over email/Slack -- separate from (and in

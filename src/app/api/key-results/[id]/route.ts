@@ -23,12 +23,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
   }
 
-  const keyResult = await updateKeyResult(params.id, {
-    title,
-    dueDate,
-    ownerId: ownerId === undefined ? undefined : ownerId || null,
-    level,
-  });
+  // Who's making this edit -- recorded on any key_result_activity rows
+  // this update produces (see updateKeyResult's change-log diffing).
+  const actingUser = session.user as { id?: string } | undefined;
+
+  const keyResult = await updateKeyResult(
+    params.id,
+    {
+      title,
+      dueDate,
+      ownerId: ownerId === undefined ? undefined : ownerId || null,
+      level,
+    },
+    actingUser?.id ?? null
+  );
   if (!keyResult) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(keyResult);
 }

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PermissionLevel } from "@/lib/db";
+import { format } from "date-fns";
+import type { PermissionLevel, KeyResultActivityField } from "@/lib/db";
 import { LEVEL_ORDER, LEVEL_META } from "@/lib/permissions";
+import { formatKeyResultActivityValue, KEY_RESULT_ACTIVITY_FIELD_LABELS } from "@/lib/activityLabel";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
 
@@ -13,6 +15,22 @@ type Existing = {
   dueDate: string;
   ownerId: string;
   level: PermissionLevel;
+};
+
+type ActivityEntry = {
+  id: string;
+  field: KeyResultActivityField;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
+  changedBy: { id: string; name: string } | null;
+};
+
+type HistoryData = {
+  entries: ActivityEntry[];
+  /** When the project was created and by whom (createdBy is null for projects created before creators were tracked). */
+  createdAt: string | null;
+  createdBy: { id: string; name: string } | null;
 };
 
 export default function KeyResultModal({
@@ -50,6 +68,29 @@ export default function KeyResultModal({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<HistoryData | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  async function toggleHistory() {
+    if (historyOpen) {
+      setHistoryOpen(false);
+      return;
+    }
+    setHistoryOpen(true);
+    if (history === null && existing) {
+      setHistoryLoading(true);
+      try {
+        const res = await fetch(`/api/key-results/${existing.id}/activity`);
+        setHistory(res.ok ? await res.json() : { entries: [], createdAt: null, createdBy: null });
+      } catch {
+        setHistory({ entries: [], createdAt: null, createdBy: null });
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+  }
 
   // Resolved target objective: the fixed prop when scoped to one objective,
   // otherwise whichever the person picked from the new dropdown.
@@ -88,6 +129,10 @@ export default function KeyResultModal({
         return;
       }
       setOpen(false);
+      // Drop the cached history so it's re-fetched (and includes this
+      // save) the next time the panel is opened.
+      setHistory(null);
+      setHistoryOpen(false);
       router.refresh();
     } catch {
       // Same fix as TaskModal: a thrown fetch (dropped connection, request
@@ -200,6 +245,57 @@ export default function KeyResultModal({
             among its tasks (e.g. any task At Risk makes the project At Risk), and the
             objective&rsquo;s overall progress is the average of its projects&rsquo; statuses.
           </p>
+          {existing && (
+            <div className="rounded-lg border border-line">
+              <button
+                type="button"
+                onClick={toggleHistory}
+                className="flex w-full items-center justify-between px-3 py-2.5 text-[12.5px] font-semibold text-ink-secondary hover:text-ink"
+              >
+                <span>
+                  History{history && history.entries.length > 0 ? ` (${history.entries.length})` : ""}
+                </span>
+                <span className="text-ink-tertiary">{historyOpen ? "▴" : "▾"}</span>
+              </button>
+              {historyOpen && (
+                <div className="max-h-[220px] overflow-y-auto border-t border-line px-3 py-2.5">
+                  {historyLoading && <p className="text-[12px] text-ink-tertiary">Loading…</p>}
+                  {!historyLoading && history && history.entries.length === 0 && (
+                    <p className="text-[12px] text-ink-tertiary">
+                      No changes recorded yet -- title, due date, owner, and visibility edits will
+                      show up here.
+                    </p>
+                  )}
+                  {!historyLoading && history && history.entries.length > 0 && (
+                    <ul className="flex flex-col gap-2.5">
+                      {history.entries.map((h) => (
+                        <li key={h.id} className="text-[12px] leading-relaxed text-ink-secondary">
+                          <span className="font-semibold text-ink">{KEY_RESULT_ACTIVITY_FIELD_LABELS[h.field]}</span>
+                          {": "}
+                          {formatKeyResultActivityValue(h.field, h.oldValue, userById)}
+                          {" → "}
+                          {formatKeyResultActivityValue(h.field, h.newValue, userById)}
+                          <div className="text-[11px] text-ink-tertiary">
+                            {h.changedBy?.name ?? "Someone"} ·{" "}
+                            {format(new Date(h.changedAt), "MMM d, yyyy 'at' h:mm a")}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {!historyLoading && history && history.createdAt && (
+                    <div className="mt-2.5 border-t border-[#F2F4F7] pt-2.5 text-[12px] leading-relaxed text-ink-secondary">
+                      <span className="font-semibold text-ink">Created</span>
+                      <div className="text-[11px] text-ink-tertiary">
+                        {history.createdBy ? `by ${history.createdBy.name}` : "creator not recorded"} ·{" "}
+                        {format(new Date(history.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {error && <p className="text-[13px] text-status-offTrackText">{error}</p>}
           <button
             disabled={loading}
