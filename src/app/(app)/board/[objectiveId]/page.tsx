@@ -7,7 +7,7 @@ import { getObjectiveFull, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress, objectiveProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
-import { canSeeLevel, viewerFrom, mustAssignToSelf } from "@/lib/permissions";
+import { canSeeLevel, viewerFrom, mustAssignToSelf, visibleObjectives } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import LevelSelect from "@/components/LevelSelect";
@@ -40,22 +40,21 @@ export default async function BoardPage({
   const viewer = viewerFrom(currentUser);
   // "All"-level people can add/edit tasks but only assign them to themselves -- see mustAssignToSelf.
   const selfOnlyUserId = mustAssignToSelf(viewer) ? sessionUserId : undefined;
-  // Treated exactly like "this objective doesn't exist" for anyone whose
-  // level can't see it -- same as a bad/guessed objectiveId in the URL,
-  // rather than a distinguishable "forbidden" page that would confirm the
-  // objective's existence to someone who can't see it.
-  if (!canSeeLevel(viewer, rawObjective.level)) notFound();
-
-  // Cascading level filter: a key result the viewer can't see drops its
-  // tasks with it, same rule as the org-wide browsing pages (see
-  // visibleObjectives in src/lib/permissions.ts) -- just applied to one
-  // objective's already-fetched tree instead of the whole list.
-  const objective = {
-    ...rawObjective,
-    keyResults: rawObjective.keyResults
-      .filter((kr) => canSeeLevel(viewer, kr.level))
-      .map((kr) => ({ ...kr, tasks: kr.tasks.filter((t) => canSeeLevel(viewer, t.level)) })),
-  };
+  // Same cascading level filter (and "you always see your own work"
+  // exception) as the org-wide browsing pages -- see visibleObjectives in
+  // src/lib/permissions.ts -- just applied to this one objective's
+  // already-fetched tree. Treated exactly like "this objective doesn't
+  // exist" when nothing at all is visible to this person -- same as a
+  // bad/guessed objectiveId in the URL, rather than a distinguishable
+  // "forbidden" page that would confirm the objective's existence to
+  // someone who can't see it.
+  const objective = visibleObjectives([rawObjective], viewer)[0];
+  if (!objective) notFound();
+  // True when this person only sees their own slice of an objective their
+  // level can't otherwise see -- the objective-wide controls (rename,
+  // visibility, delete) are hidden then, since deleting it would wipe
+  // everything under it, including what they're not meant to see.
+  const limitedView = !canSeeLevel(viewer, objective.level);
 
   // Set when a link (e.g. from the Activity page) wants this page to land
   // directly in a specific task's edit modal rather than just the board --
@@ -96,22 +95,26 @@ export default async function BoardPage({
           <span className="rounded-full bg-accent-soft px-2.5 py-1 text-[12px] font-semibold text-accent">
             {overallProgress}% overall
           </span>
-          <LevelSelect endpoint={`/api/objectives/${objective.id}`} level={objective.level} />
-          <ObjectiveModal
-            existing={{
-              id: objective.id,
-              title: objective.title,
-              team: objective.team ?? "",
-              dueDate: objective.dueDate ?? "",
-              level: objective.level,
-            }}
-          />
-          <DeleteObjectiveButton
-            objectiveId={objective.id}
-            keyResultCount={objective.keyResults.length}
-            taskCount={totalTaskCount}
-            redirectTo="/objectives"
-          />
+          {!limitedView && (
+            <>
+              <LevelSelect endpoint={`/api/objectives/${objective.id}`} level={objective.level} />
+              <ObjectiveModal
+                existing={{
+                  id: objective.id,
+                  title: objective.title,
+                  team: objective.team ?? "",
+                  dueDate: objective.dueDate ?? "",
+                  level: objective.level,
+                }}
+              />
+              <DeleteObjectiveButton
+                objectiveId={objective.id}
+                keyResultCount={objective.keyResults.length}
+                taskCount={totalTaskCount}
+                redirectTo="/objectives"
+              />
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <PersonFilter users={users} current={personFilter} basePath={`/board/${objective.id}`} />

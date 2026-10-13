@@ -10,7 +10,7 @@ import {
   FRESHNESS_META,
 } from "@/lib/activityLabel";
 import { isOverdue } from "@/lib/status";
-import { canSeeChain, viewerFrom } from "@/lib/permissions";
+import { canSeeChain, viewerFrom, isInvolvedInTask } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusPill from "@/components/StatusPill";
 import PersonFilter from "@/components/PersonFilter";
@@ -48,8 +48,16 @@ export default async function ActivityPage({
   // is filtering the already-capped most-recent-200 activity rows, not
   // re-querying a fuller set -- see the ACTIVITY_LIMIT comment above.
   const viewer = viewerFrom(currentUser);
-  const activity = allActivity.filter((a) => canSeeChain(viewer, a.taskLevel, a.keyResultLevel, a.objectiveLevel));
-  const tasks = allTasksWithStatus.filter((t) => canSeeChain(viewer, t.level, t.keyResultLevel, t.objectiveLevel));
+  // The exception: tasks you own or are sub-owner of always show, even
+  // under an objective/project/level you couldn't otherwise see.
+  const activity = allActivity.filter(
+    (a) =>
+      canSeeChain(viewer, a.taskLevel, a.keyResultLevel, a.objectiveLevel) ||
+      isInvolvedInTask(viewer, { ownerId: a.taskOwnerId, subOwnerId: a.taskSubOwnerId })
+  );
+  const tasks = allTasksWithStatus.filter(
+    (t) => canSeeChain(viewer, t.level, t.keyResultLevel, t.objectiveLevel) || isInvolvedInTask(viewer, t)
+  );
 
   const personFilter = searchParams?.person ?? "";
 

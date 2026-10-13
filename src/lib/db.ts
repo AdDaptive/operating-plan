@@ -1082,6 +1082,9 @@ export type TaskActivityFull = TaskActivityRow & {
   changedBy: UserRow | null;
   taskTitle: string;
   taskLevel: PermissionLevel | null;
+  /** The task's owner / sub-owner, so the Activity page can keep showing you changes to tasks you're on. */
+  taskOwnerId: string | null;
+  taskSubOwnerId: string | null;
   keyResultTitle: string;
   keyResultLevel: PermissionLevel | null;
   objectiveId: string;
@@ -1112,6 +1115,8 @@ export async function listRecentTaskActivity(limit = 200): Promise<TaskActivityF
       changedBy: a.changedById ? (userById.get(a.changedById) ?? null) : null,
       taskTitle: task?.title ?? "(deleted task)",
       taskLevel: task?.level ?? null,
+      taskOwnerId: task?.ownerId ?? null,
+      taskSubOwnerId: task?.subOwnerId ?? null,
       keyResultTitle: kr?.title ?? "",
       keyResultLevel: kr?.level ?? null,
       objectiveId: objective?.id ?? "",

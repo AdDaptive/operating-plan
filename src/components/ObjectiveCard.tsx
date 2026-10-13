@@ -28,6 +28,8 @@ export type ObjectiveCardData = {
   team: string | null;
   dueDate: string | null;
   level: PermissionLevel;
+  /** Viewer only sees their own items under this objective (see visibleObjectives) -- hides rename/delete. */
+  limited?: boolean;
   progress: number;
   taskCount: number;
   owners: string[];
@@ -64,20 +66,24 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
           )}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1">
-          <ObjectiveModal
-            existing={{
-              id: objective.id,
-              title: objective.title,
-              team: objective.team ?? "",
-              dueDate: objective.dueDate ?? "",
-              level: objective.level,
-            }}
-          />
-          <DeleteObjectiveButton
-            objectiveId={objective.id}
-            keyResultCount={objective.keyResults.length}
-            taskCount={objective.taskCount}
-          />
+          {!objective.limited && (
+            <>
+              <ObjectiveModal
+                existing={{
+                  id: objective.id,
+                  title: objective.title,
+                  team: objective.team ?? "",
+                  dueDate: objective.dueDate ?? "",
+                  level: objective.level,
+                }}
+              />
+              <DeleteObjectiveButton
+                objectiveId={objective.id}
+                keyResultCount={objective.keyResults.length}
+                taskCount={objective.taskCount}
+              />
+            </>
+          )}
           <div style={ringStyle(objective.progress, ringColor)}>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[11px] font-bold text-ink">
               {objective.progress}%

@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getObjectivesFull, getUserById } from "@/lib/db";
 import { objectiveProgress } from "@/lib/rollup";
-import { viewerFrom, visibleObjectives } from "@/lib/permissions";
+import { viewerFrom, visibleObjectives, canSeeLevel } from "@/lib/permissions";
 import ObjectiveCard from "@/components/ObjectiveCard";
 import ObjectiveModal from "@/components/ObjectiveModal";
 
@@ -14,7 +14,8 @@ export default async function ObjectivesPage() {
     getObjectivesFull(),
     sessionUserId ? getUserById(sessionUserId) : Promise.resolve(undefined),
   ]);
-  const objectives = visibleObjectives(allObjectives, viewerFrom(currentUser));
+  const viewer = viewerFrom(currentUser);
+  const objectives = visibleObjectives(allObjectives, viewer);
 
   const cards = objectives.map((o) => {
     const tasks = o.keyResults.flatMap((kr) => kr.tasks);
@@ -25,6 +26,8 @@ export default async function ObjectivesPage() {
       team: o.team,
       dueDate: o.dueDate,
       level: o.level,
+      // Only this person's own slice of an objective their level can't otherwise see.
+      limited: !canSeeLevel(viewer, o.level),
       progress: objectiveProgress(o.keyResults),
       taskCount: tasks.length,
       owners,
