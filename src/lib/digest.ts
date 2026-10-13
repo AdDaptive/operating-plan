@@ -9,7 +9,7 @@ import {
 } from "@/lib/db";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { bucketTasks, isTeamFlag } from "@/lib/taskBuckets";
-import { keyResultsUrl, emailSubject } from "@/lib/appUrl";
+import { keyResultsUrl, taskUrl, emailSubject } from "@/lib/appUrl";
 import { sendDigestEmail } from "@/lib/notifiers/email";
 import { sendDigestSlackDM } from "@/lib/notifiers/slack";
 
@@ -209,6 +209,9 @@ function taskLine(t: TaskForReminder, withOwner = false): string {
     `      Due: ${dueLabel(t)}${overdue ? " (overdue)" : ""} — ${STATUS_META[t.status].label}`;
   if (t.description) line += `\n      Details: ${t.description}`;
   if (t.notes) line += `\n      Notes: ${t.notes}`;
+  // Plain-text/Slack version of the clickable title in the HTML email --
+  // both Slack and most mail clients auto-link a bare URL.
+  line += `\n      Open: ${taskUrl(t)}`;
   return line;
 }
 
@@ -263,7 +266,7 @@ function htmlRow(t: TaskForReminder, withOwner: boolean): string {
       <td style="padding:8px 0;border-bottom:1px solid #F2F4F7;">
         <div>
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${meta.dot};margin-right:8px;"></span>
-          ${owner}<span style="font-weight:600;">${escapeHtml(t.title)}</span>
+          ${owner}<a href="${taskUrl(t)}" style="font-weight:600;color:#3538CD;text-decoration:none;">${escapeHtml(t.title)}</a>
         </div>
         <div style="margin-left:16px;margin-top:2px;color:#667085;font-size:12px;">
           Project: ${escapeHtml(t.keyResultTitle)}

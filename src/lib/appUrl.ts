@@ -29,6 +29,18 @@ export function keyResultsUrl(): string {
 }
 
 /**
+ * Absolute deep link to one task: its objective's board, landing straight
+ * in that task's edit modal (the same `?editTask=<id>` link the Activity
+ * page uses -- see TaskModal's `autoOpen`). Used to make each task in the
+ * daily digest clickable. Falls back to the Projects page if the task has
+ * no resolvable objective.
+ */
+export function taskUrl(task: { id: string; objectiveId?: string | null }): string {
+  if (!task.objectiveId) return keyResultsUrl();
+  return `${baseUrl()}/board/${task.objectiveId}?editTask=${encodeURIComponent(task.id)}`;
+}
+
+/**
  * Every outbound email's subject line starts with this, in all caps, so
  * a person scanning their inbox can immediately tell an email came from
  * the platform (added 2026-09-25, per explicit request -- applies to
