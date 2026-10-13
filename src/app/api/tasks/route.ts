@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { createTask } from "@/lib/db";
+import { createTask, getUserById } from "@/lib/db";
+import { mustAssignToSelf, viewerFrom } from "@/lib/permissions";
 import { notifyTaskAssigned } from "@/lib/notifications";
 
 export async function POST(req: Request) {
@@ -15,6 +16,16 @@ export async function POST(req: Request) {
       { error: "title, dueDate, ownerId, and keyResultId are required." },
       { status: 400 }
     );
+  }
+
+  // "All"-level (non-admin) people can create tasks, but only for
+  // themselves -- see mustAssignToSelf in src/lib/permissions.ts.
+  const actingUserId = (session.user as { id?: string } | undefined)?.id;
+  const actingUserRow = actingUserId ? await getUserById(actingUserId) : undefined;
+  if (mustAssignToSelf(viewerFrom(actingUserRow))) {
+    if (ownerId !== actingUserId || (subOwnerId && subOwnerId !== actingUserId)) {
+      return NextResponse.json({ error: "You can only assign tasks to yourself." }, { status: 403 });
+    }
   }
 
   const task = await createTask({

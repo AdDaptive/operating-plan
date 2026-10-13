@@ -7,7 +7,7 @@ import { getObjectiveFull, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress, objectiveProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
-import { canSeeLevel, viewerFrom } from "@/lib/permissions";
+import { canSeeLevel, viewerFrom, mustAssignToSelf } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import LevelSelect from "@/components/LevelSelect";
@@ -38,6 +38,8 @@ export default async function BoardPage({
   if (!rawObjective) notFound();
 
   const viewer = viewerFrom(currentUser);
+  // "All"-level people can add/edit tasks but only assign them to themselves -- see mustAssignToSelf.
+  const selfOnlyUserId = mustAssignToSelf(viewer) ? sessionUserId : undefined;
   // Treated exactly like "this objective doesn't exist" for anyone whose
   // level can't see it -- same as a bad/guessed objectiveId in the URL,
   // rather than a distinguishable "forbidden" page that would confirm the
@@ -116,7 +118,7 @@ export default async function BoardPage({
           {allKeyResults.length > 0 && (
             <KeyResultModal objectiveId={objective.id} objectiveDueDate={objective.dueDate} users={users} />
           )}
-          {allKeyResults.length > 0 && <TaskModal keyResults={allKeyResults} users={users} />}
+          {allKeyResults.length > 0 && <TaskModal keyResults={allKeyResults} users={users} selfOnlyUserId={selfOnlyUserId} />}
         </div>
       </div>
 
@@ -309,6 +311,7 @@ export default async function BoardPage({
                         <TaskModal
                           keyResults={allKeyResults}
                           users={users}
+                          selfOnlyUserId={selfOnlyUserId}
                           autoOpen={task.id === editTaskId}
                           existing={{
                             id: task.id,

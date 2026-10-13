@@ -83,3 +83,15 @@ export function visibleObjectives<T extends ObjectiveFull>(objectives: T[], view
         })),
     }));
 }
+
+/**
+ * "All"-level people (the bottom tier, shown as "All" in the UI) can create
+ * and edit tasks like anyone else, but can only assign them to themselves --
+ * as task owner or as sub-owner. Managers, Senior Leadership, and admins
+ * can assign to anyone. Enforced server-side in the tasks API routes; the
+ * task modal also narrows its Owner/Sub-owner dropdowns to match so people
+ * aren't offered choices the server will refuse.
+ */
+export function mustAssignToSelf(viewer: Viewer): boolean {
+  return !viewer.isAdmin && viewer.level === "EMPLOYEE";
+}

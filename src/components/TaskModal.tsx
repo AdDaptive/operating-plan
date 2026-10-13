@@ -46,10 +46,16 @@ export default function TaskModal({
   users,
   existing,
   autoOpen = false,
+  selfOnlyUserId,
 }: {
   keyResults: { id: string; title: string }[];
   users: { id: string; name: string }[];
   existing?: Existing;
+  // Set for "All"-level people (see mustAssignToSelf in permissions.ts):
+  // the Owner and Sub-owner dropdowns only offer this person (plus,
+  // when editing, whoever is already on the task, so saving doesn't
+  // silently change it). The server enforces the same rule.
+  selfOnlyUserId?: string;
   // Opens the modal immediately on mount -- used when linking in from a
   // page (e.g. Activity) that wants to land directly in edit mode for one
   // specific task, via a `?editTask=<id>` query param the caller reads and
@@ -63,7 +69,7 @@ export default function TaskModal({
   const [title, setTitle] = useState(existing?.title ?? "");
   const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
-  const [ownerId, setOwnerId] = useState(existing?.ownerId ?? users[0]?.id ?? "");
+  const [ownerId, setOwnerId] = useState(existing?.ownerId ?? selfOnlyUserId ?? users[0]?.id ?? "");
   const [subOwnerId, setSubOwnerId] = useState(existing?.subOwnerId ?? "");
   const [priority, setPriority] = useState(existing?.priority ?? "");
   const [level, setLevel] = useState<PermissionLevel>(existing?.level ?? "EMPLOYEE");
@@ -76,6 +82,12 @@ export default function TaskModal({
   const [history, setHistory] = useState<HistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const userById = new Map(users.map((u) => [u.id, u]));
+  const ownerOptions = selfOnlyUserId
+    ? users.filter((u) => u.id === selfOnlyUserId || u.id === existing?.ownerId)
+    : users;
+  const subOwnerOptions = selfOnlyUserId
+    ? users.filter((u) => u.id === selfOnlyUserId || u.id === existing?.subOwnerId)
+    : users;
 
   async function toggleHistory() {
     if (historyOpen) {
@@ -205,7 +217,7 @@ export default function TaskModal({
                 onChange={(e) => setOwnerId(e.target.value)}
                 className={inputClass}
               >
-                {users.map((u) => (
+                {ownerOptions.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
                   </option>
@@ -230,7 +242,7 @@ export default function TaskModal({
                 className={inputClass}
               >
                 <option value="">— None —</option>
-                {users.map((u) => (
+                {subOwnerOptions.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
                   </option>
@@ -252,6 +264,11 @@ export default function TaskModal({
               </select>
             </Field>
           </div>
+          {selfOnlyUserId && (
+            <p className="text-[11.5px] text-ink-tertiary">
+              You can assign tasks to yourself only.
+            </p>
+          )}
           <Field label="Status">
             <select
               value={status}

@@ -6,7 +6,7 @@ import { getObjectivesFull, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
-import { viewerFrom, visibleObjectives } from "@/lib/permissions";
+import { viewerFrom, visibleObjectives, mustAssignToSelf } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import LevelSelect from "@/components/LevelSelect";
@@ -44,7 +44,10 @@ export default async function KeyResultsPage({
   const users = allUsers.map((u) => ({ id: u.id, name: u.name }));
   // Level-filtered before anything else below (personFilter/priorityFilter,
   // grouping, counts) -- see visibleObjectives in src/lib/permissions.ts.
-  const objectives = visibleObjectives(allObjectivesFull, viewerFrom(currentUser));
+  const viewer = viewerFrom(currentUser);
+  const objectives = visibleObjectives(allObjectivesFull, viewer);
+  // "All"-level people can add/edit tasks but only assign them to themselves -- see mustAssignToSelf.
+  const selfOnlyUserId = mustAssignToSelf(viewer) ? sessionUserId : undefined;
 
   // Filtering down to one person's tasks (owner or delegated sub-owner,
   // same "counts for both" convention as Home's myTasks filter), and/or
@@ -112,7 +115,7 @@ export default async function KeyResultsPage({
               users={users}
             />
           )}
-          {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} />}
+          {allKeyResultsFlat.length > 0 && <TaskModal keyResults={allKeyResultsFlat} users={users} selfOnlyUserId={selfOnlyUserId} />}
         </div>
       </div>
 
@@ -309,6 +312,7 @@ export default async function KeyResultsPage({
                                   <TaskModal
                                     keyResults={allKeyResults}
                                     users={users}
+                                    selfOnlyUserId={selfOnlyUserId}
                                     existing={{
                                       id: task.id,
                                       title: task.title,
