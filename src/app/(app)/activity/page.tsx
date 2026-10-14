@@ -10,7 +10,7 @@ import {
   FRESHNESS_META,
 } from "@/lib/activityLabel";
 import { isOverdue } from "@/lib/status";
-import { canSeeChain, viewerFrom, isInvolvedInTask } from "@/lib/permissions";
+import { canSeeChain, viewerFrom, isInvolvedInTask, seesOnlyOwnActivity } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusPill from "@/components/StatusPill";
 import PersonFilter from "@/components/PersonFilter";
@@ -50,16 +50,25 @@ export default async function ActivityPage({
   const viewer = viewerFrom(currentUser);
   // The exception: tasks you own or are sub-owner of always show, even
   // under an objective/project/level you couldn't otherwise see.
-  const activity = allActivity.filter(
-    (a) =>
-      canSeeChain(viewer, a.taskLevel, a.keyResultLevel, a.objectiveLevel) ||
-      isInvolvedInTask(viewer, { ownerId: a.taskOwnerId, subOwnerId: a.taskSubOwnerId })
-  );
-  const tasks = allTasksWithStatus.filter(
-    (t) => canSeeChain(viewer, t.level, t.keyResultLevel, t.objectiveLevel) || isInvolvedInTask(viewer, t)
+  //
+  // Managers and "All"-level people are narrowed further to ONLY their own
+  // items (tasks they own or are sub-owner of) -- see seesOnlyOwnActivity.
+  // Senior Leadership and admins keep the org-wide view.
+  const ownOnly = seesOnlyOwnActivity(viewer);
+  const activity = allActivity.filter((a) => {
+    const involved = isInvolvedInTask(viewer, { ownerId: a.taskOwnerId, subOwnerId: a.taskSubOwnerId });
+    return ownOnly
+      ? involved
+      : canSeeChain(viewer, a.taskLevel, a.keyResultLevel, a.objectiveLevel) || involved;
+  });
+  const tasks = allTasksWithStatus.filter((t) =>
+    ownOnly
+      ? isInvolvedInTask(viewer, t)
+      : canSeeChain(viewer, t.level, t.keyResultLevel, t.objectiveLevel) || isInvolvedInTask(viewer, t)
   );
 
-  const personFilter = searchParams?.person ?? "";
+  // The person filter is pointless when you can only see your own items.
+  const personFilter = ownOnly ? "" : searchParams?.person ?? "";
 
   // Most-recently-changed-first: today's changes lead, then yesterday's,
   // then the rest of the last 7 days, then anything older, then
@@ -101,12 +110,12 @@ export default async function ActivityPage({
             {!personFilter && activity.length === ACTIVITY_LIMIT ? ` (most recent ${ACTIVITY_LIMIT})` : ""}
           </p>
         </div>
-        <PersonFilter users={users} current={personFilter} basePath="/activity" />
+        {!ownOnly && <PersonFilter users={users} current={personFilter} basePath="/activity" />}
       </div>
 
       <div className="flex-grow overflow-y-auto p-4 md:p-7">
         <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-          <h2 className="text-[15px] font-bold text-ink">All tasks</h2>
+          <h2 className="text-[15px] font-bold text-ink">{ownOnly ? "Your tasks" : "All tasks"}</h2>
           <div className="flex flex-wrap items-center gap-3 text-[11.5px] text-ink-tertiary">
             {(["today", "yesterday", "last7", "stale", "never"] as const).map((key) => (
               <span key={key} className="flex items-center gap-1.5">

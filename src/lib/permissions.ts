@@ -123,6 +123,15 @@ export function visibleObjectives<T extends ObjectiveFull>(objectives: T[], view
  * task modal also narrows its Owner/Sub-owner dropdowns to match so people
  * aren't offered choices the server will refuse.
  */
+/**
+ * Managers and "All"-level people only see their own items (tasks they own
+ * or are sub-owner of) on the Activity page; Senior Leadership and admins
+ * keep the org-wide view.
+ */
+export function seesOnlyOwnActivity(viewer: Viewer): boolean {
+  return !viewer.isAdmin && viewer.level !== "SENIOR_LEADERSHIP";
+}
+
 export function mustAssignToSelf(viewer: Viewer): boolean {
   return !viewer.isAdmin && viewer.level === "EMPLOYEE";
 }
