@@ -47,6 +47,7 @@ export default function TaskModal({
   existing,
   autoOpen = false,
   selfOnlyUserId,
+  triggerContent,
 }: {
   keyResults: { id: string; title: string }[];
   users: { id: string; name: string }[];
@@ -63,6 +64,11 @@ export default function TaskModal({
   // soon as the modal closes (see closeModal below), so navigating back or
   // refreshing afterward doesn't keep reopening it.
   autoOpen?: boolean;
+  // When editing an existing task, render this (e.g. the task's title) as
+  // the clickable thing that opens the modal, instead of the default
+  // pencil icon button -- used on the Home page so the task itself is the
+  // link. Ignored for "New Task".
+  triggerContent?: React.ReactNode;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
@@ -159,11 +165,43 @@ export default function TaskModal({
     }
   }
 
+  // Re-seed the form from the task's current values every time it's opened.
+  // The fields are plain useState seeded only on first mount, so without
+  // this a task changed elsewhere on the page since then (e.g. the inline
+  // status dropdown sitting in the same row, which is right there on the
+  // Home page) would show stale values here, and saving would quietly
+  // revert that change.
+  function openModal() {
+    if (existing) {
+      setTitle(existing.title);
+      setStatus(existing.status);
+      setDueDate(existing.dueDate);
+      setOwnerId(existing.ownerId);
+      setSubOwnerId(existing.subOwnerId);
+      setPriority(existing.priority);
+      setLevel(existing.level);
+      setKeyResultId(existing.keyResultId);
+      setDescription(existing.description);
+      setNotes(existing.notes);
+      setError(null);
+    }
+    setOpen(true);
+  }
+
   return (
     <>
-      {existing ? (
+      {existing && triggerContent ? (
         <button
-          onClick={() => setOpen(true)}
+          type="button"
+          onClick={openModal}
+          aria-label="Edit task"
+          className="group flex min-w-0 items-center gap-1.5 text-left"
+        >
+          {triggerContent}
+        </button>
+      ) : existing ? (
+        <button
+          onClick={openModal}
           aria-label="Edit task"
           className="flex items-center justify-center rounded-lg p-1.5 text-ink-tertiary hover:bg-surface-panel hover:text-ink"
         >
@@ -174,7 +212,7 @@ export default function TaskModal({
         </button>
       ) : (
         <button
-          onClick={() => setOpen(true)}
+          onClick={openModal}
           className="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2.5 text-[13.5px] font-semibold text-white hover:bg-accent-hover"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

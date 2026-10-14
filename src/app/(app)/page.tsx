@@ -11,6 +11,8 @@ import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import KeyResultStatusBadge from "@/components/KeyResultStatusBadge";
 import TeamMemberDigestActions from "@/components/TeamMemberDigestActions";
+import TaskModal from "@/components/TaskModal";
+import { viewerFrom, visibleObjectives, mustAssignToSelf } from "@/lib/permissions";
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -106,6 +108,39 @@ export default async function HomePage() {
     ? allTasks.filter((t) => reportIds.has(t.ownerId) && isTeamFlag(t)).sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     : [];
   const teamTaskGroups = groupByObjective(teamAttentionTasks);
+
+  // Everything the task edit modal (opened by clicking a task title below)
+  // needs: the people list, the projects a task can be moved to, and the
+  // "All"-level self-assign-only rule (see mustAssignToSelf). The project
+  // dropdown offers what this person can see, plus the project of every
+  // task shown on this page so a row's own project is always selectable
+  // even if it isn't otherwise visible to them.
+  const viewer = viewerFrom(me);
+  const selfOnlyUserId = mustAssignToSelf(viewer) ? userId : undefined;
+  const userOptions = users.map((u) => ({ id: u.id, name: u.name }));
+  const keyResultOptionMap = new Map<string, { id: string; title: string }>();
+  for (const o of visibleObjectives(objectives, viewer)) {
+    for (const kr of o.keyResults) keyResultOptionMap.set(kr.id, { id: kr.id, title: kr.title });
+  }
+  for (const t of [...myTasks, ...teamAttentionTasks]) {
+    if (!keyResultOptionMap.has(t.keyResultId)) {
+      keyResultOptionMap.set(t.keyResultId, { id: t.keyResultId, title: t.keyResultTitle });
+    }
+  }
+  const keyResultOptions = Array.from(keyResultOptionMap.values());
+  const modalExisting = (t: (typeof allTasks)[number]) => ({
+    id: t.id,
+    title: t.title,
+    status: t.status,
+    dueDate: format(new Date(t.dueDate), "yyyy-MM-dd"),
+    ownerId: t.ownerId,
+    subOwnerId: t.subOwnerId ?? "",
+    priority: t.priority ?? "",
+    keyResultId: t.keyResultId,
+    level: t.level,
+    description: t.description ?? "",
+    notes: t.notes ?? "",
+  });
 
   return (
     <>
@@ -210,7 +245,21 @@ export default async function HomePage() {
                                 className="h-[7px] w-[7px] flex-shrink-0 rounded-full"
                                 style={{ background: STATUS_META[task.status].dot }}
                               />
-                              <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                              <TaskModal
+                                keyResults={keyResultOptions}
+                                users={userOptions}
+                                selfOnlyUserId={selfOnlyUserId}
+                                existing={modalExisting(task)}
+                                triggerContent={
+                                  <>
+                                    <span className="truncate text-[13.5px] font-medium text-ink group-hover:text-accent">{task.title}</span>
+                                    <svg className="flex-shrink-0 text-ink-tertiary group-hover:text-accent" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                  </>
+                                }
+                              />
                               {task.priority && (
                                 <span
                                   className="flex-shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
@@ -306,7 +355,21 @@ export default async function HomePage() {
                               >
                                 {initials(task.owner.name)}
                               </div>
-                              <span className="truncate text-[13.5px] font-medium text-ink">{task.title}</span>
+                              <TaskModal
+                                keyResults={keyResultOptions}
+                                users={userOptions}
+                                selfOnlyUserId={selfOnlyUserId}
+                                existing={modalExisting(task)}
+                                triggerContent={
+                                  <>
+                                    <span className="truncate text-[13.5px] font-medium text-ink group-hover:text-accent">{task.title}</span>
+                                    <svg className="flex-shrink-0 text-ink-tertiary group-hover:text-accent" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                  </>
+                                }
+                              />
                             </div>
                             <span className="min-w-0 truncate text-[13px] text-ink-secondary">
                               <span className="font-semibold text-ink-tertiary md:hidden">Project: </span>
