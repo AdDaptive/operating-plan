@@ -6,6 +6,13 @@ import SignOutButton from "./SignOutButton";
 import { initials, colorForName } from "@/lib/avatar";
 
 export const NAV_ICONS: Record<string, JSX.Element> = {
+  archive: (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="21 8 21 21 3 21 3 8"></polyline>
+      <rect x="1" y="3" width="22" height="5"></rect>
+      <line x1="10" y1="12" x2="14" y2="12"></line>
+    </svg>
+  ),
   home: (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -81,6 +88,7 @@ export default function Sidebar({
         <SidebarLink href="/team" icon="team" label="Team" active={pathname === "/team"} />
         <SidebarLink href="/reports" icon="reports" label="Reports" active={pathname === "/reports"} />
         <SidebarLink href="/activity" icon="activity" label="Activity" active={pathname === "/activity"} />
+        <SidebarLink href="/archive" icon="archive" label="Archive" active={pathname === "/archive"} />
       </nav>
 
       <div className="mb-2 mt-5 px-2.5 text-[10.5px] font-bold tracking-wide text-ink-tertiary">

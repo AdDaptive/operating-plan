@@ -56,7 +56,10 @@ export type UserRow = {
   createdAt: string;
 };
 
-export type ObjectiveRow = {
+/** Set when an item has been archived (hidden everywhere but the Archive page) -- see the Archive section below. */
+export type ArchiveFields = { archivedAt?: string | null; archivedById?: string | null };
+
+export type ObjectiveRow = ArchiveFields & {
   id: string;
   title: string;
   team: string | null;
@@ -66,7 +69,7 @@ export type ObjectiveRow = {
   createdAt: string;
 };
 
-export type KeyResultRow = {
+export type KeyResultRow = ArchiveFields & {
   id: string;
   title: string;
   status: TaskStatus;
@@ -80,7 +83,7 @@ export type KeyResultRow = {
   createdAt: string;
 };
 
-export type TaskRow = {
+export type TaskRow = ArchiveFields & {
   id: string;
   title: string;
   status: TaskStatus;
@@ -350,6 +353,14 @@ async function ensureSchema(): Promise<void> {
     -- additive -- everything created before this was tracked simply has no
     -- recorded creator, and the history panels say so instead of guessing.
     ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "createdById" TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+    -- Archive: archived rows are hidden everywhere except the Archive page.
+    ALTER TABLE objectives ADD COLUMN IF NOT EXISTS "archivedAt" TEXT;
+    ALTER TABLE objectives ADD COLUMN IF NOT EXISTS "archivedById" TEXT REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS "archivedAt" TEXT;
+    ALTER TABLE key_results ADD COLUMN IF NOT EXISTS "archivedById" TEXT REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "archivedAt" TEXT;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "archivedById" TEXT REFERENCES users(id) ON DELETE SET NULL;
     ALTER TABLE key_results ADD COLUMN IF NOT EXISTS "createdById" TEXT REFERENCES users(id) ON DELETE SET NULL;
 
     -- "Off Track" was removed as a status option. Re-map any existing rows
@@ -647,7 +658,7 @@ export async function deleteObjective(id: string): Promise<void> {
 
 export async function listKeyResultsByObjective(objectiveId: string): Promise<KeyResultRow[]> {
   return query<KeyResultRow>(
-    'SELECT * FROM key_results WHERE "objectiveId" = $1 ORDER BY "createdAt" ASC',
+    'SELECT * FROM key_results WHERE "objectiveId" = $1 AND "archivedAt" IS NULL ORDER BY "createdAt" ASC',
     [objectiveId]
   );
 }
@@ -655,7 +666,7 @@ export async function listKeyResultsByObjective(objectiveId: string): Promise<Ke
 /** How many tasks under a project are due after the given yyyy-MM-dd day. */
 export async function countTasksDueAfter(keyResultId: string, day: string): Promise<number> {
   const row = await queryOne<{ n: string }>(
-    'SELECT COUNT(*)::text AS n FROM tasks WHERE "keyResultId" = $1 AND SUBSTRING("dueDate" FROM 1 FOR 10) > $2',
+    'SELECT COUNT(*)::text AS n FROM tasks WHERE "keyResultId" = $1 AND "archivedAt" IS NULL AND SUBSTRING("dueDate" FROM 1 FOR 10) > $2',
     [keyResultId, day]
   );
   return Number(row?.n ?? 0);
@@ -937,9 +948,9 @@ export type ObjectiveFull = ObjectiveRow & { keyResults: KeyResultWithTasks[] };
 
 export async function getObjectivesFull(): Promise<ObjectiveFull[]> {
   const [objectives, keyResults, tasks, users] = await Promise.all([
-    listObjectives(),
-    query<KeyResultRow>('SELECT * FROM key_results ORDER BY "createdAt" ASC'),
-    query<TaskRow>('SELECT * FROM tasks ORDER BY "dueDate" ASC'),
+    listObjectives().then((os) => os.filter((o) => !o.archivedAt)),
+    query<KeyResultRow>('SELECT * FROM key_results WHERE "archivedAt" IS NULL ORDER BY "createdAt" ASC'),
+    query<TaskRow>('SELECT * FROM tasks WHERE "archivedAt" IS NULL ORDER BY "dueDate" ASC'),
     listUsers(),
   ]);
   const userById = new Map(users.map((u) => [u.id, u]));
@@ -968,13 +979,13 @@ export async function getObjectivesFull(): Promise<ObjectiveFull[]> {
 
 export async function getObjectiveFull(id: string): Promise<ObjectiveFull | null> {
   const objective = await getObjectiveById(id);
-  if (!objective) return null;
+  if (!objective || objective.archivedAt) return null;
   const [keyResults, users] = await Promise.all([listKeyResultsByObjective(id), listUsers()]);
   const userById = new Map(users.map((u) => [u.id, u]));
   const krIds = keyResults.map((kr) => kr.id);
   const tasks = krIds.length
     ? await query<TaskRow>(
-        `SELECT * FROM tasks WHERE "keyResultId" = ANY($1::text[]) ORDER BY "dueDate" ASC`,
+        `SELECT * FROM tasks WHERE "keyResultId" = ANY($1::text[]) AND "archivedAt" IS NULL ORDER BY "dueDate" ASC`,
         [krIds]
       )
     : [];
@@ -1011,7 +1022,7 @@ export type TaskForReminder = TaskRow & {
 /** All not-done tasks, joined with their owner, the owner's manager, and their objective. */
 export async function listActiveTasksForReminders(): Promise<TaskForReminder[]> {
   const [tasks, users, keyResults, objectives] = await Promise.all([
-    query<TaskRow>("SELECT * FROM tasks WHERE status != 'DONE'"),
+    query<TaskRow>(`SELECT * FROM tasks WHERE status != 'DONE' AND "archivedAt" IS NULL`),
     listUsers(),
     query<KeyResultRow>('SELECT * FROM key_results'),
     listObjectives(),
@@ -1115,7 +1126,15 @@ export async function listRecentTaskActivity(limit = 200): Promise<TaskActivityF
   const objById = new Map(objectives.map((o) => [o.id, o]));
   const userById = new Map(users.map((u) => [u.id, u]));
 
-  return activity.map((a) => {
+  // Changes to archived tasks (or tasks under an archived project/objective) are hidden.
+  const visibleActivity = activity.filter((a) => {
+    const t = taskById.get(a.taskId);
+    const k = t ? krById.get(t.keyResultId) : undefined;
+    const o = k ? objById.get(k.objectiveId) : undefined;
+    return !(t?.archivedAt || k?.archivedAt || o?.archivedAt);
+  });
+
+  return visibleActivity.map((a) => {
     const task = taskById.get(a.taskId);
     const kr = task ? krById.get(task.keyResultId) : undefined;
     const objective = kr ? objById.get(kr.objectiveId) : undefined;
@@ -1179,7 +1198,13 @@ export async function listTasksWithActivityStatus(): Promise<TaskWithActivitySta
   const krById = new Map(keyResults.map((kr) => [kr.id, kr]));
   const objById = new Map(objectives.map((o) => [o.id, o]));
 
-  return tasks.map((t) => {
+  const liveTasks = tasks.filter((t) => {
+    const k = krById.get(t.keyResultId);
+    const o = k ? objById.get(k.objectiveId) : undefined;
+    return !(t.archivedAt || k?.archivedAt || o?.archivedAt);
+  });
+
+  return liveTasks.map((t) => {
     const kr = krById.get(t.keyResultId);
     const objective = kr ? objById.get(kr.objectiveId) : undefined;
     const lastChanged = lastChangedByTaskId.get(t.id);
@@ -1197,6 +1222,129 @@ export async function listTasksWithActivityStatus(): Promise<TaskWithActivitySta
       lastChangedBy: lastChanged?.lastChangedById ? (userById.get(lastChanged.lastChangedById) ?? null) : null,
     };
   });
+}
+
+// ---------- Archive ----------
+//
+// Objectives, projects (key_results), and tasks each carry a nullable
+// "archivedAt" (+ "archivedById"). Archived rows are hidden from every
+// normal view (see the filters in getObjectivesFull etc.) but nothing is
+// deleted. Archiving a parent also archives its not-yet-archived children
+// with the SAME timestamp, which is how restoring the parent later brings
+// back exactly those children and not ones that were archived on their own
+// earlier. A child can't be restored while its parent is still archived.
+
+export type ArchiveKind = "task" | "keyResult" | "objective";
+
+export async function archiveItem(kind: ArchiveKind, id: string, byUserId: string | null): Promise<void> {
+  const at = new Date().toISOString();
+  const set = '"archivedAt" = $1, "archivedById" = $2';
+  if (kind === "task") {
+    await query(`UPDATE tasks SET ${set} WHERE id = $3 AND "archivedAt" IS NULL`, [at, byUserId, id]);
+  } else if (kind === "keyResult") {
+    await query(`UPDATE tasks SET ${set} WHERE "keyResultId" = $3 AND "archivedAt" IS NULL`, [at, byUserId, id]);
+    await query(`UPDATE key_results SET ${set} WHERE id = $3 AND "archivedAt" IS NULL`, [at, byUserId, id]);
+  } else {
+    await query(
+      `UPDATE tasks SET ${set} WHERE "archivedAt" IS NULL AND "keyResultId" IN (SELECT id FROM key_results WHERE "objectiveId" = $3)`,
+      [at, byUserId, id]
+    );
+    await query(`UPDATE key_results SET ${set} WHERE "objectiveId" = $3 AND "archivedAt" IS NULL`, [at, byUserId, id]);
+    await query(`UPDATE objectives SET ${set} WHERE id = $3 AND "archivedAt" IS NULL`, [at, byUserId, id]);
+  }
+}
+
+export async function restoreItem(kind: ArchiveKind, id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const clear = '"archivedAt" = NULL, "archivedById" = NULL';
+  if (kind === "task") {
+    const task = await getTaskById(id);
+    if (!task) return { ok: false, error: "Not found" };
+    const kr = await getKeyResultById(task.keyResultId);
+    if (kr?.archivedAt) return { ok: false, error: `Restore the project "${kr.title}" first.` };
+    await query(`UPDATE tasks SET ${clear} WHERE id = $1`, [id]);
+  } else if (kind === "keyResult") {
+    const kr = await getKeyResultById(id);
+    if (!kr) return { ok: false, error: "Not found" };
+    const objective = await getObjectiveById(kr.objectiveId);
+    if (objective?.archivedAt) return { ok: false, error: `Restore the objective "${objective.title}" first.` };
+    if (kr.archivedAt) {
+      await query(`UPDATE tasks SET ${clear} WHERE "keyResultId" = $1 AND "archivedAt" = $2`, [id, kr.archivedAt]);
+    }
+    await query(`UPDATE key_results SET ${clear} WHERE id = $1`, [id]);
+  } else {
+    const objective = await getObjectiveById(id);
+    if (!objective) return { ok: false, error: "Not found" };
+    if (objective.archivedAt) {
+      await query(
+        `UPDATE tasks SET ${clear} WHERE "archivedAt" = $2 AND "keyResultId" IN (SELECT id FROM key_results WHERE "objectiveId" = $1)`,
+        [id, objective.archivedAt]
+      );
+      await query(`UPDATE key_results SET ${clear} WHERE "objectiveId" = $1 AND "archivedAt" = $2`, [id, objective.archivedAt]);
+    }
+    await query(`UPDATE objectives SET ${clear} WHERE id = $1`, [id]);
+  }
+  return { ok: true };
+}
+
+export type ArchivedData = {
+  objectives: (ObjectiveRow & { archivedBy: UserRow | null })[];
+  keyResults: (KeyResultRow & {
+    objectiveTitle: string;
+    owner: UserRow | null;
+    archivedBy: UserRow | null;
+    /** The objective it belongs to is itself still archived. */
+    parentArchived: boolean;
+  })[];
+  tasks: (TaskRow & {
+    keyResultTitle: string;
+    objectiveTitle: string;
+    owner: UserRow | null;
+    subOwner: UserRow | null;
+    archivedBy: UserRow | null;
+    /** The project it belongs to is itself still archived. */
+    parentArchived: boolean;
+  })[];
+};
+
+/** Every archived objective, project, and task, most recently archived first. Backs the /archive page. */
+export async function listArchived(): Promise<ArchivedData> {
+  const [objectives, keyResults, tasks, users] = await Promise.all([
+    query<ObjectiveRow>('SELECT * FROM objectives ORDER BY "archivedAt" DESC'),
+    query<KeyResultRow>('SELECT * FROM key_results ORDER BY "archivedAt" DESC'),
+    query<TaskRow>('SELECT * FROM tasks ORDER BY "archivedAt" DESC'),
+    listUsers(),
+  ]);
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const objById = new Map(objectives.map((o) => [o.id, o]));
+  const krById = new Map(keyResults.map((kr) => [kr.id, kr]));
+  const byWho = (id: string | null | undefined) => (id ? (userById.get(id) ?? null) : null);
+
+  return {
+    objectives: objectives.filter((o) => o.archivedAt).map((o) => ({ ...o, archivedBy: byWho(o.archivedById) })),
+    keyResults: keyResults
+      .filter((kr) => kr.archivedAt)
+      .map((kr) => ({
+        ...kr,
+        objectiveTitle: objById.get(kr.objectiveId)?.title ?? "",
+        owner: byWho(kr.ownerId),
+        archivedBy: byWho(kr.archivedById),
+        parentArchived: !!objById.get(kr.objectiveId)?.archivedAt,
+      })),
+    tasks: tasks
+      .filter((t) => t.archivedAt)
+      .map((t) => {
+        const kr = krById.get(t.keyResultId);
+        return {
+          ...t,
+          keyResultTitle: kr?.title ?? "",
+          objectiveTitle: kr ? (objById.get(kr.objectiveId)?.title ?? "") : "",
+          owner: byWho(t.ownerId),
+          subOwner: byWho(t.subOwnerId),
+          archivedBy: byWho(t.archivedById),
+          parentArchived: !!kr?.archivedAt,
+        };
+      }),
+  };
 }
 
 // ---------- Meeting agendas ----------

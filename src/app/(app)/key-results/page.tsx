@@ -18,6 +18,7 @@ import PersonFilter from "@/components/PersonFilter";
 import PriorityFilter from "@/components/PriorityFilter";
 import KeyResultAccordion from "@/components/KeyResultAccordion";
 import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
+import ArchiveButton from "@/components/ArchiveButton";
 import CreateMeetingAgendaButton from "@/components/CreateMeetingAgendaButton";
 
 /**
@@ -199,6 +200,12 @@ export default async function KeyResultsPage({
                                     ownerId: kr.ownerId ?? "",
                                     level: kr.level,
                                   }}
+                                />
+                                <ArchiveButton
+                                  kind="keyResult"
+                                  id={kr.id}
+                                  noun="project"
+                                  detail={`This also archives its ${kr.tasks.length} task${kr.tasks.length === 1 ? "" : "s"}.`}
                                 />
                                 <DeleteKeyResultButton keyResultId={kr.id} taskCount={kr.tasks.length} />
                               </div>

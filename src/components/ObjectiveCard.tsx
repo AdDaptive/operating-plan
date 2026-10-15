@@ -7,6 +7,7 @@ import { LEVEL_META } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import ObjectiveModal from "./ObjectiveModal";
 import DeleteObjectiveButton from "./DeleteObjectiveButton";
+import ArchiveButton from "./ArchiveButton";
 
 function ringStyle(progress: number, color: string) {
   const deg = Math.round((progress / 100) * 360);
@@ -76,6 +77,12 @@ export default function ObjectiveCard({ objective, index }: { objective: Objecti
                   dueDate: objective.dueDate ?? "",
                   level: objective.level,
                 }}
+              />
+              <ArchiveButton
+                kind="objective"
+                id={objective.id}
+                noun="objective"
+                detail={`This also archives its ${objective.keyResults.length} project${objective.keyResults.length === 1 ? "" : "s"} and ${objective.taskCount} task${objective.taskCount === 1 ? "" : "s"}.`}
               />
               <DeleteObjectiveButton
                 objectiveId={objective.id}

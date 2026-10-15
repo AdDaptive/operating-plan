@@ -73,7 +73,7 @@ export default function TaskModal({
   const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
   const [title, setTitle] = useState(existing?.title ?? "");
-  const [status, setStatus] = useState<TaskStatus>(existing?.status ?? "NOT_STARTED");
+  const [status, setStatus] = useState<TaskStatus | "ARCHIVED">(existing?.status ?? "NOT_STARTED");
   const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [ownerId, setOwnerId] = useState(existing?.ownerId ?? selfOnlyUserId ?? users[0]?.id ?? "");
   const [subOwnerId, setSubOwnerId] = useState(existing?.subOwnerId ?? "");
@@ -131,7 +131,8 @@ export default function TaskModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          status,
+          // "Archived" isn't a stored status -- see the archive call below.
+          status: status === "ARCHIVED" ? (existing?.status ?? "NOT_STARTED") : status,
           dueDate,
           ownerId,
           subOwnerId: subOwnerId || null,
@@ -146,6 +147,19 @@ export default function TaskModal({
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "Something went wrong.");
         return;
+      }
+      if (status === "ARCHIVED" && existing) {
+        const archiveRes = await fetch("/api/archive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "task", id: existing.id, action: "archive" }),
+        });
+        if (!archiveRes.ok) {
+          const data = await archiveRes.json().catch(() => ({}));
+          setError(data.error ?? "Your changes were saved, but the task couldn't be archived.");
+          router.refresh();
+          return;
+        }
       }
       setOpen(false);
       // Drop the cached history so it's re-fetched (and includes this
@@ -326,7 +340,7 @@ export default function TaskModal({
           <Field label="Status">
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as TaskStatus)}
+              onChange={(e) => setStatus(e.target.value as TaskStatus | "ARCHIVED")}
               className={inputClass}
             >
               {STATUS_ORDER.map((s) => (
@@ -334,6 +348,7 @@ export default function TaskModal({
                   {STATUS_META[s].label}
                 </option>
               ))}
+              {existing && <option value="ARCHIVED">Archive (move to the Archive page)</option>}
             </select>
           </Field>
           <Field label="Who can see this">

@@ -119,6 +119,18 @@ export default function MobileNav({
                 {NAV_ICONS.activity}
                 Activity
               </Link>
+              <Link
+                href="/archive"
+                onClick={() => setDrawerOpen(false)}
+                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] ${
+                  pathname === "/archive"
+                    ? "bg-accent-soft font-semibold text-accent"
+                    : "font-medium text-[#344054] hover:bg-surface-sunk"
+                }`}
+              >
+                {NAV_ICONS.archive}
+                Archive
+              </Link>
             </div>
 
             <div className="mb-2 px-1 text-[10.5px] font-bold tracking-wide text-ink-tertiary">

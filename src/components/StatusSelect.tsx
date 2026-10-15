@@ -12,6 +12,19 @@ export default function StatusSelect({ taskId, status }: { taskId: string; statu
   const meta = STATUS_META[value];
 
   async function onChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    // "Archive" isn't a real status: it moves the task to the Archive page
+    // (its status is kept, so restoring puts it back as it was).
+    if (e.target.value === "ARCHIVE") {
+      setSaving(true);
+      await fetch("/api/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "task", id: taskId, action: "archive" }),
+      });
+      setSaving(false);
+      router.refresh();
+      return;
+    }
     const next = e.target.value as TaskStatus;
     setValue(next);
     setSaving(true);
@@ -37,6 +50,7 @@ export default function StatusSelect({ taskId, status }: { taskId: string; statu
           {STATUS_META[s].label}
         </option>
       ))}
+      <option value="ARCHIVE">Archive</option>
     </select>
   );
 }

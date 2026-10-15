@@ -17,6 +17,7 @@ import TaskModal from "@/components/TaskModal";
 import KeyResultModal from "@/components/KeyResultModal";
 import ObjectiveModal from "@/components/ObjectiveModal";
 import DeleteObjectiveButton from "@/components/DeleteObjectiveButton";
+import ArchiveButton from "@/components/ArchiveButton";
 import PersonFilter from "@/components/PersonFilter";
 import DeleteKeyResultButton from "@/components/DeleteKeyResultButton";
 import KeyResultAccordion from "@/components/KeyResultAccordion";
@@ -106,6 +107,13 @@ export default async function BoardPage({
                   dueDate: objective.dueDate ?? "",
                   level: objective.level,
                 }}
+              />
+              <ArchiveButton
+                kind="objective"
+                id={objective.id}
+                noun="objective"
+                detail={`This also archives its ${objective.keyResults.length} project${objective.keyResults.length === 1 ? "" : "s"} and ${totalTaskCount} task${totalTaskCount === 1 ? "" : "s"}.`}
+                redirectTo="/objectives"
               />
               <DeleteObjectiveButton
                 objectiveId={objective.id}
@@ -204,6 +212,12 @@ export default async function BoardPage({
                         ownerId: kr.ownerId ?? "",
                         level: kr.level,
                       }}
+                    />
+                    <ArchiveButton
+                      kind="keyResult"
+                      id={kr.id}
+                      noun="project"
+                      detail={`This also archives its ${kr.tasks.length} task${kr.tasks.length === 1 ? "" : "s"}.`}
                     />
                     <DeleteKeyResultButton keyResultId={kr.id} taskCount={kr.tasks.length} />
                   </div>
