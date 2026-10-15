@@ -81,9 +81,9 @@ export default async function KeyResultsPage({
   // Flattened across every objective (unlike the board page's allKeyResults,
   // which is scoped to just one) -- the header's "New Task" button lets the
   // person pick which objective/key-result via the modal's own dropdown.
-  const allKeyResultsFlat = objectives.flatMap((o) => o.keyResults.map((kr) => ({ id: kr.id, title: kr.title })));
+  const allKeyResultsFlat = objectives.flatMap((o) => o.keyResults.map((kr) => ({ id: kr.id, title: kr.title, dueDate: kr.dueDate })));
   const allKeyResultsByObjectiveId = new Map(
-    objectives.map((o) => [o.id, o.keyResults.map((kr) => ({ id: kr.id, title: kr.title }))])
+    objectives.map((o) => [o.id, o.keyResults.map((kr) => ({ id: kr.id, title: kr.title, dueDate: kr.dueDate }))])
   );
 
   return (

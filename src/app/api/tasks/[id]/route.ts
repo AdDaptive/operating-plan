@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { updateTask, deleteTask, getTaskById, getUserById } from "@/lib/db";
 import { mustAssignToSelf, viewerFrom } from "@/lib/permissions";
+import { taskDueDateError, dayOf } from "@/lib/taskDueDate";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -10,6 +11,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const body = await req.json().catch(() => null);
   const { title, status, dueDate, ownerId, subOwnerId, priority, keyResultId, level, description, notes } = body ?? {};
+
+  // A task can't be due after its project. Only checked when the due date
+  // or project is actually being changed, so unrelated edits (status,
+  // notes, ...) to an older task that already sits past its project's date
+  // still go through.
+  if (dueDate || keyResultId) {
+    const current = await getTaskById(params.id);
+    if (current) {
+      const nextDue = dueDate || current.dueDate;
+      const nextKr = keyResultId || current.keyResultId;
+      if (dayOf(nextDue) !== dayOf(current.dueDate) || nextKr !== current.keyResultId) {
+        const dueError = await taskDueDateError(nextKr, nextDue);
+        if (dueError) return NextResponse.json({ error: dueError }, { status: 400 });
+      }
+    }
+  }
 
   // Who's making this edit -- recorded on any task_activity rows this
   // update produces (see updateTask's movement-log diffing).

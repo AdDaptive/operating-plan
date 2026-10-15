@@ -67,7 +67,7 @@ export default async function BoardPage({
   // Every key result stays offered in the reassign-to dropdowns below even
   // when a person filter is active -- it only hides key-result CARDS that
   // have nothing left to show, it never narrows what a task can be moved to.
-  const allKeyResults = objective.keyResults.map((kr) => ({ id: kr.id, title: kr.title }));
+  const allKeyResults = objective.keyResults.map((kr) => ({ id: kr.id, title: kr.title, dueDate: kr.dueDate }));
   const totalTaskCount = objective.keyResults.reduce((sum, kr) => sum + kr.tasks.length, 0);
 
   const personFilter = searchParams?.person ?? "";

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { updateKeyResult, deleteKeyResult, getKeyResultById, getObjectiveById } from "@/lib/db";
+import { updateKeyResult, deleteKeyResult, getKeyResultById, getObjectiveById, countTasksDueAfter } from "@/lib/db";
+import { dayOf } from "@/lib/taskDueDate";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -19,6 +20,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           { error: "A project's due date can't be after the objective's due date." },
           { status: 400 }
         );
+      }
+      // Moving a project's date earlier can't strand tasks past it.
+      if (!existing.dueDate || dayOf(dueDate) !== dayOf(existing.dueDate)) {
+        const late = await countTasksDueAfter(params.id, dayOf(dueDate));
+        if (late > 0) {
+          return NextResponse.json(
+            {
+              error: `${late} task${late === 1 ? " is" : "s are"} due after that date. Move ${late === 1 ? "its" : "their"} due date${late === 1 ? "" : "s"} up first, or choose a later project due date.`,
+            },
+            { status: 400 }
+          );
+        }
       }
     }
   }

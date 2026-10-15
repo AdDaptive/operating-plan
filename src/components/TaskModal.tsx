@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { TaskStatus, TaskActivityField, PermissionLevel } from "@/lib/db";
 import Modal from "./Modal";
 import { Field, inputClass } from "./form";
@@ -49,7 +49,7 @@ export default function TaskModal({
   selfOnlyUserId,
   triggerContent,
 }: {
-  keyResults: { id: string; title: string }[];
+  keyResults: { id: string; title: string; dueDate?: string | null }[];
   users: { id: string; name: string }[];
   existing?: Existing;
   // Set for "All"-level people (see mustAssignToSelf in permissions.ts):
@@ -109,8 +109,18 @@ export default function TaskModal({
     }
   }
 
+  // A task can't be due after the project it's under (the server enforces
+  // the same rule); the date picker's max and the hint below follow the
+  // currently selected project.
+  const projectDue = keyResults.find((kr) => kr.id === keyResultId)?.dueDate?.slice(0, 10) ?? null;
+  const projectDueLabel = projectDue ? format(parseISO(projectDue), "MMM d, yyyy") : "";
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (projectDue && dueDate > projectDue) {
+      setError(`A task's due date can't be after its project's due date (${projectDueLabel}).`);
+      return;
+    }
     setLoading(true);
     setError(null);
     const url = existing ? `/api/tasks/${existing.id}` : "/api/tasks";
@@ -267,9 +277,15 @@ export default function TaskModal({
                 required
                 type="date"
                 value={dueDate}
+                max={projectDue ?? undefined}
                 onChange={(e) => setDueDate(e.target.value)}
                 className={inputClass}
               />
+              {projectDue && (
+                <p className={`mt-1 text-[11px] ${dueDate > projectDue ? "text-[#B42318]" : "text-ink-tertiary"}`}>
+                  Project is due {projectDueLabel}
+                </p>
+              )}
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">

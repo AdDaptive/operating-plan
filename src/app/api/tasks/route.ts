@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { createTask, getUserById } from "@/lib/db";
 import { mustAssignToSelf, viewerFrom } from "@/lib/permissions";
 import { notifyTaskAssigned } from "@/lib/notifications";
+import { taskDueDateError } from "@/lib/taskDueDate";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+
+  const dueError = await taskDueDateError(keyResultId, dueDate);
+  if (dueError) return NextResponse.json({ error: dueError }, { status: 400 });
 
   // "All"-level (non-admin) people can create tasks, but only for
   // themselves -- see mustAssignToSelf in src/lib/permissions.ts.

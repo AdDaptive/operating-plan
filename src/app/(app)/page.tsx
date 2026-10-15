@@ -81,6 +81,7 @@ export default async function HomePage() {
           objectiveId: o.id,
           objectiveTitle: o.title,
           keyResultTitle: kr.title,
+          keyResultDueDate: kr.dueDate,
         }))
     )
   );
@@ -118,13 +119,17 @@ export default async function HomePage() {
   const viewer = viewerFrom(me);
   const selfOnlyUserId = mustAssignToSelf(viewer) ? userId : undefined;
   const userOptions = users.map((u) => ({ id: u.id, name: u.name }));
-  const keyResultOptionMap = new Map<string, { id: string; title: string }>();
+  const keyResultOptionMap = new Map<string, { id: string; title: string; dueDate: string | null }>();
   for (const o of visibleObjectives(objectives, viewer)) {
-    for (const kr of o.keyResults) keyResultOptionMap.set(kr.id, { id: kr.id, title: kr.title });
+    for (const kr of o.keyResults) keyResultOptionMap.set(kr.id, { id: kr.id, title: kr.title, dueDate: kr.dueDate });
   }
   for (const t of [...myTasks, ...teamAttentionTasks]) {
     if (!keyResultOptionMap.has(t.keyResultId)) {
-      keyResultOptionMap.set(t.keyResultId, { id: t.keyResultId, title: t.keyResultTitle });
+      keyResultOptionMap.set(t.keyResultId, {
+        id: t.keyResultId,
+        title: t.keyResultTitle,
+        dueDate: t.keyResultDueDate,
+      });
     }
   }
   const keyResultOptions = Array.from(keyResultOptionMap.values());

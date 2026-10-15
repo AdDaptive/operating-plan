@@ -652,6 +652,15 @@ export async function listKeyResultsByObjective(objectiveId: string): Promise<Ke
   );
 }
 
+/** How many tasks under a project are due after the given yyyy-MM-dd day. */
+export async function countTasksDueAfter(keyResultId: string, day: string): Promise<number> {
+  const row = await queryOne<{ n: string }>(
+    'SELECT COUNT(*)::text AS n FROM tasks WHERE "keyResultId" = $1 AND SUBSTRING("dueDate" FROM 1 FOR 10) > $2',
+    [keyResultId, day]
+  );
+  return Number(row?.n ?? 0);
+}
+
 export async function getKeyResultById(id: string): Promise<KeyResultRow | undefined> {
   return queryOne<KeyResultRow>('SELECT * FROM key_results WHERE id = $1', [id]);
 }
