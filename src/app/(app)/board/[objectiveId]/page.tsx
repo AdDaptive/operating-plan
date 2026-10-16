@@ -276,14 +276,6 @@ export default async function BoardPage({
                             </span>
                           )}
                         </div>
-                        {task.status === "DONE" && (
-                          <div
-                            className="ml-4 w-fit rounded-md px-2 py-0.5 text-[12px] font-extrabold uppercase tracking-wide"
-                            style={{ background: "#E6F4EA", color: "#1E7B34" }}
-                          >
-                            Completed
-                          </div>
-                        )}
                         {task.subOwner && (
                           <div className="ml-4 text-[12px] leading-snug text-ink-tertiary">
                             Also delegated to {task.subOwner.name}
@@ -322,6 +314,14 @@ export default async function BoardPage({
                       </div>
                       <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 md:pt-0.5">
                         <StatusSelect taskId={task.id} status={task.status} />
+                        {task.status === "DONE" && (
+                          <span
+                            className="rounded-md px-1.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wide"
+                            style={{ background: "#E6F4EA", color: "#1E7B34" }}
+                          >
+                            Completed
+                          </span>
+                        )}
                         <LevelSelect endpoint={`/api/tasks/${task.id}`} level={task.level} />
                       </div>
                       <div className="flex items-center gap-1 md:pt-0.5">
