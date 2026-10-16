@@ -148,7 +148,7 @@ export type TaskActivityRow = {
  * derived from its tasks (computeKeyResultStatus), so there's nothing to
  * log for it.
  */
-export type KeyResultActivityField = "title" | "dueDate" | "ownerId" | "level";
+export type KeyResultActivityField = "title" | "dueDate" | "ownerId" | "level" | "objectiveId";
 
 export type KeyResultActivityRow = {
   id: string;
@@ -709,11 +709,11 @@ export async function createKeyResult(data: {
 }
 
 /** The four fields updateKeyResult diffs on every edit and logs to key_result_activity when they actually change. */
-const TRACKED_KEY_RESULT_FIELDS: KeyResultActivityField[] = ["title", "dueDate", "ownerId", "level"];
+const TRACKED_KEY_RESULT_FIELDS: KeyResultActivityField[] = ["title", "dueDate", "ownerId", "level", "objectiveId"];
 
 export async function updateKeyResult(
   id: string,
-  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId" | "level">>,
+  patch: Partial<Pick<KeyResultRow, "title" | "dueDate" | "ownerId" | "level" | "objectiveId">>,
   /** Who made this edit (the signed-in session user's id), for the project's history. Null/omitted for a system-driven update with no actor. */
   changedById?: string | null
 ): Promise<KeyResultRow | undefined> {
@@ -721,8 +721,8 @@ export async function updateKeyResult(
   if (!existing) return undefined;
   const next = mergeDefined<KeyResultRow>(existing, patch);
   await query(
-    'UPDATE key_results SET title = $1, "dueDate" = $2, "ownerId" = $3, level = $4 WHERE id = $5',
-    [next.title, next.dueDate, next.ownerId, next.level, id]
+    'UPDATE key_results SET title = $1, "dueDate" = $2, "ownerId" = $3, level = $4, "objectiveId" = $5 WHERE id = $6',
+    [next.title, next.dueDate, next.ownerId, next.level, next.objectiveId, id]
   );
 
   // Same rule as the task movement log: one row per tracked field whose
@@ -731,9 +731,18 @@ export async function updateKeyResult(
   const changedAt = nowIso();
   for (const field of TRACKED_KEY_RESULT_FIELDS) {
     if (existing[field] !== next[field]) {
+      let oldValue = existing[field];
+      let newValue = next[field];
+      if (field === "objectiveId") {
+        // History shows objective names (as they were at the time of the
+        // move), not ids.
+        const [from, to] = await Promise.all([getObjectiveById(existing.objectiveId), getObjectiveById(next.objectiveId)]);
+        oldValue = from?.title ?? existing.objectiveId;
+        newValue = to?.title ?? next.objectiveId;
+      }
       await query(
         'INSERT INTO key_result_activity (id, "keyResultId", field, "oldValue", "newValue", "changedById", "changedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [newId("kra"), id, field, existing[field], next[field], changedById ?? null, changedAt]
+        [newId("kra"), id, field, oldValue, newValue, changedById ?? null, changedAt]
       );
     }
   }

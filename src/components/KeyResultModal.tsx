@@ -50,9 +50,9 @@ export default function KeyResultModal({
   /** Alternative to a fixed `objectiveId`: every objective the person can
    * choose from, each with its own due date for the "can't be after the
    * objective's due date" validation below. Ignored if `objectiveId` is
-   * set, and irrelevant while editing an existing key result (its
-   * objective is never reassignable here, same as a task's key result is
-   * only reassignable, never its objective, elsewhere in this app). */
+   * set -- except while editing an existing project, where passing this
+   * (alongside the current `objectiveId`) turns the Objective dropdown on
+   * so the project can be moved to a different objective. */
   objectives?: { id: string; title: string; dueDate: string | null }[];
   users: { id: string; name: string }[];
   existing?: Existing;
@@ -94,10 +94,24 @@ export default function KeyResultModal({
 
   // Resolved target objective: the fixed prop when scoped to one objective,
   // otherwise whichever the person picked from the new dropdown.
-  const effectiveObjectiveId = objectiveId ?? selectedObjectiveId;
-  const effectiveObjectiveDueDate = objectiveId
-    ? objectiveDueDate
-    : (objectives?.find((o) => o.id === selectedObjectiveId)?.dueDate ?? null);
+  // The Objective dropdown shows when no objective is fixed (Add Project on
+  // the Projects page) or when editing an existing project that was given
+  // the list of objectives it can move to.
+  const canPick = !!objectives && (!objectiveId || !!existing);
+  const effectiveObjectiveId = canPick ? selectedObjectiveId : (objectiveId ?? selectedObjectiveId);
+  const effectiveObjectiveDueDate =
+    canPick || !objectiveId
+      ? (objectives?.find((o) => o.id === selectedObjectiveId)?.dueDate ?? null)
+      : objectiveDueDate;
+  const isMoving = !!existing && !!objectiveId && selectedObjectiveId !== objectiveId;
+
+  function openEdit() {
+    // Start from the project's current objective each time (it may have
+    // been moved since this component mounted).
+    setSelectedObjectiveId(objectiveId ?? objectives?.[0]?.id ?? "");
+    setError(null);
+    setOpen(true);
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -148,7 +162,7 @@ export default function KeyResultModal({
     <>
       {existing ? (
         <button
-          onClick={() => setOpen(true)}
+          onClick={openEdit}
           aria-label="Edit project"
           className="flex items-center justify-center rounded-lg p-1.5 text-ink-tertiary hover:bg-surface-panel hover:text-ink"
         >
@@ -171,7 +185,7 @@ export default function KeyResultModal({
       )}
       <Modal open={open} onClose={() => setOpen(false)} title={existing ? "Edit project" : "Add project"}>
         <form onSubmit={onSubmit} className="flex flex-col gap-3.5">
-          {!objectiveId && objectives && (
+          {canPick && objectives && (
             <Field label="Objective">
               <select
                 required
@@ -185,6 +199,11 @@ export default function KeyResultModal({
                   </option>
                 ))}
               </select>
+              {isMoving && (
+                <p className="mt-1 text-[11px] text-ink-tertiary">
+                  Moving this project also moves all of its tasks to the new objective.
+                </p>
+              )}
             </Field>
           )}
           <Field label="Project">

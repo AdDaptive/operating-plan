@@ -3,7 +3,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getObjectiveFull, listUsers, getUserById } from "@/lib/db";
+import { getObjectiveFull, listObjectives, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress, objectiveProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
@@ -64,6 +64,11 @@ export default async function BoardPage({
   const editTaskId = searchParams?.editTask ?? "";
 
   const users = (await listUsers()).map((u) => ({ id: u.id, name: u.name }));
+  // Objectives a project here can be moved to: any this person can see
+  // (plus this one, so the dropdown always has its current value).
+  const moveTargets = (await listObjectives())
+    .filter((o) => !o.archivedAt && (o.id === objective.id || canSeeLevel(viewer, o.level)))
+    .map((o) => ({ id: o.id, title: o.title, dueDate: o.dueDate }));
   const overallProgress = objectiveProgress(objective.keyResults);
   // Every key result stays offered in the reassign-to dropdowns below even
   // when a person filter is active -- it only hides key-result CARDS that
@@ -204,6 +209,7 @@ export default async function BoardPage({
                     <KeyResultModal
                       objectiveId={objective.id}
                       objectiveDueDate={objective.dueDate}
+                      objectives={moveTargets}
                       users={users}
                       existing={{
                         id: kr.id,

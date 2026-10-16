@@ -6,7 +6,7 @@ import { getObjectivesFull, listUsers, getUserById } from "@/lib/db";
 import { keyResultProgress } from "@/lib/rollup";
 import { STATUS_META, isOverdue } from "@/lib/status";
 import { PRIORITY_META } from "@/lib/priority";
-import { viewerFrom, visibleObjectives, mustAssignToSelf } from "@/lib/permissions";
+import { viewerFrom, visibleObjectives, mustAssignToSelf, canSeeLevel } from "@/lib/permissions";
 import { initials, colorForName } from "@/lib/avatar";
 import StatusSelect from "@/components/StatusSelect";
 import LevelSelect from "@/components/LevelSelect";
@@ -49,6 +49,12 @@ export default async function KeyResultsPage({
   const objectives = visibleObjectives(allObjectivesFull, viewer);
   // "All"-level people can add/edit tasks but only assign them to themselves -- see mustAssignToSelf.
   const selfOnlyUserId = mustAssignToSelf(viewer) ? sessionUserId : undefined;
+  // Objectives a project can be moved to: any this person can see at their
+  // level, plus the project's own current one so the dropdown always has it.
+  const moveTargetsFor = (currentObjectiveId: string) =>
+    allObjectivesFull
+      .filter((o) => o.id === currentObjectiveId || canSeeLevel(viewer, o.level))
+      .map((o) => ({ id: o.id, title: o.title, dueDate: o.dueDate }));
 
   // Filtering down to one person's tasks (owner or delegated sub-owner,
   // same "counts for both" convention as Home's myTasks filter), and/or
@@ -192,6 +198,7 @@ export default async function KeyResultsPage({
                                 <KeyResultModal
                                   objectiveId={objective.id}
                                   objectiveDueDate={objective.dueDate}
+                                  objectives={moveTargetsFor(objective.id)}
                                   users={users}
                                   existing={{
                                     id: kr.id,

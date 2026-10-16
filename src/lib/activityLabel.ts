@@ -118,6 +118,7 @@ export const KEY_RESULT_ACTIVITY_FIELD_LABELS: Record<KeyResultActivityField, st
   dueDate: "Due date",
   ownerId: "Owner",
   level: "Who can see this",
+  objectiveId: "Objective",
 };
 
 /** Same idea as formatActivityValue above, for a project's (key result's) history rows. */
